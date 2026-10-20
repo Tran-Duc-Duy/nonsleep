@@ -1,0 +1,23 @@
+name: Feature request / new agent integration
+description: Suggest an improvement or support for another agent
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem would this solve?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: |
+        For a new agent: how can NonSleep tell a turn started and ended? (official hooks, a power
+        assertion, an inhibitor lock, a status file…) Links to the agent's docs help a lot.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
