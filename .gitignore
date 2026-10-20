@@ -1,0 +1,31 @@
+# SwiftPM / Xcode build output
+.build/
+build/
+.swiftpm/
+DerivedData/
+*.xcodeproj/
+*.xcworkspace/
+xcuserdata/
+
+# Release artifacts produced locally
+dist/
+*.zip
+*.tar.gz
+
+# OS and editor files
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*~
+
+# Logs and local configuration — never commit
+*.log
+.env
+.env.*
+
+# Signing material — never commit
+*.p12
+*.cer
+*.mobileprovision
+*.provisionprofile
