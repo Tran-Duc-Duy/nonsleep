@@ -1,0 +1,60 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  macos:
+    name: macOS · build, test, app bundle
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+      - run: swift --version
+      - name: Build
+        run: swift build
+      - name: Test
+        run: swift test
+      - name: Universal app bundle
+        run: ARCHS="arm64 x86_64" scripts/build-app.sh
+      - name: Check bundle
+        run: |
+          plutil -lint build/NonSleep.app/Contents/Info.plist
+          codesign --verify --deep --strict build/NonSleep.app
+          for binary in NonSleepBar nonsleep; do
+            archs="$(lipo -archs "build/NonSleep.app/Contents/MacOS/$binary")"
+            echo "$binary: $archs"
+            case "$archs" in *arm64*x86_64*|*x86_64*arm64*) ;; *) echo "::error::$binary is not universal"; exit 1 ;; esac
+          done
+          build/NonSleep.app/Contents/MacOS/nonsleep help
+
+  linux:
+    name: Linux · build, test
+    runs-on: ubuntu-latest
+    container: swift:6.3-noble
+    steps:
+      - uses: actions/checkout@v5
+      - run: swift --version
+      - name: Build
+        run: swift build
+      - name: Test
+        run: swift test
+
+  scripts:
+    name: Shell scripts · shellcheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - run: shellcheck scripts/*.sh
