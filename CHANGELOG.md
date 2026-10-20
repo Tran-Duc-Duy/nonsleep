@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-10-20
+
 ### Changed
 
 - New app icon: a MacBook closed all the way, with a glowing sparkle and a status LED.
@@ -36,5 +38,6 @@ First public release.
   held by an on-demand keeper process (no root), omp detection via login1 inhibitors, the same
   hooks, lock on lid close via `loginctl`, and `install.sh` with desktop autostart for `nonsleep auto`.
 
-[Unreleased]: ../../compare/v0.1.0...HEAD
+[Unreleased]: ../../compare/v0.1.1...HEAD
+[0.1.1]: ../../compare/v0.1.0...v0.1.1
 [0.1.0]: ../../releases/tag/v0.1.0
