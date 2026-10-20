@@ -6,6 +6,10 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- New app icon: a MacBook closed all the way, with a glowing sparkle and a status LED.
+
 ## [0.1.0] - 2026-10-20
 
 First public release.

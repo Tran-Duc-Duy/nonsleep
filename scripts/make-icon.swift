@@ -1,6 +1,7 @@
 #!/usr/bin/env swift
-// Renders the NonSleep app icon: night sky, crescent moon, a closed MacBook, and a glowing
-// heartbeat above it ("still working with the lid closed").
+// Renders the NonSleep app icon: a silver MacBook closed all the way on a dark matte tile, a
+// glowing sparkle above it (the agent at work), and a teal status LED (still running).
+// The laptop is a projected 3D box, so every face lines up and can be shaded along its own axes.
 // Usage: swift scripts/make-icon.swift <output.png>   (1024×1024)
 import CoreGraphics
 import Foundation
@@ -25,6 +26,25 @@ func gradient(_ stops: [(UInt32, CGFloat, CGFloat)]) -> CGGradient {
     )!
 }
 
+func p(_ x: CGFloat, _ y: CGFloat) -> CGPoint { CGPoint(x: x, y: y) }
+func lerp(_ a: CGPoint, _ b: CGPoint, _ t: CGFloat) -> CGPoint { p(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t) }
+func polygon(_ points: [CGPoint]) -> CGPath {
+    let path = CGMutablePath()
+    path.addLines(between: points)
+    path.closeSubpath()
+    return path
+}
+
+// Orthographic camera: turn the laptop by `yaw`, look down on it by `pitch`.
+let yaw = 24.0 * .pi / 180, pitch = 30.0 * .pi / 180
+let scale: CGFloat = 600, origin = p(505, 700)
+func project(_ x: CGFloat, _ y: CGFloat, _ z: CGFloat) -> CGPoint {
+    let xr = x * cos(yaw) + z * sin(yaw)
+    let zr = -x * sin(yaw) + z * cos(yaw)
+    let up = y * cos(pitch) - zr * sin(pitch)
+    return p(origin.x + xr * scale, origin.y - up * scale)
+}
+
 let ctx = CGContext(
     data: nil, width: size, height: size, bitsPerComponent: 8, bytesPerRow: 0,
     space: CGColorSpace(name: CGColorSpace.sRGB)!, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
@@ -33,15 +53,13 @@ let ctx = CGContext(
 ctx.translateBy(x: 0, y: CGFloat(size))
 ctx.scaleBy(x: 1, y: -1)
 
-// macOS icon grid: 824pt tile centered on a 1024 canvas.
+// macOS icon grid: 824pt tile centered on a 1024 canvas, with a soft drop shadow.
 let tile = CGRect(x: 100, y: 100, width: 824, height: 824)
 let tilePath = CGPath(roundedRect: tile, cornerWidth: 186, cornerHeight: 186, transform: nil)
-
-// Drop shadow under the tile.
 ctx.saveGState()
 ctx.setShadow(offset: CGSize(width: 0, height: 18), blur: 40, color: rgb(0x000000, 0.35))
 ctx.addPath(tilePath)
-ctx.setFillColor(rgb(0x14163A))
+ctx.setFillColor(rgb(0x16171B))
 ctx.fillPath()
 ctx.restoreGState()
 
@@ -49,115 +67,145 @@ ctx.saveGState()
 ctx.addPath(tilePath)
 ctx.clip()
 
-// Night sky.
+// Matte charcoal with a studio light from the top left.
 ctx.drawLinearGradient(
-    gradient([(0x0E1235, 1, 0), (0x24205E, 1, 0.55), (0x3B1E6E, 1, 1)]),
-    start: CGPoint(x: 512, y: 100), end: CGPoint(x: 512, y: 924), options: []
+    gradient([(0x2E2F35, 1, 0), (0x18191D, 1, 0.55), (0x0C0D10, 1, 1)]),
+    start: p(260, 100), end: p(700, 924), options: []
 )
-// Teal aurora glow rising from behind the laptop.
 ctx.drawRadialGradient(
-    gradient([(0x2EF2B8, 0.42, 0), (0x2EF2B8, 0.12, 0.5), (0x2EF2B8, 0, 1)]),
-    startCenter: CGPoint(x: 512, y: 700), startRadius: 0,
-    endCenter: CGPoint(x: 512, y: 700), endRadius: 420, options: []
+    gradient([(0x60626E, 0.30, 0), (0x60626E, 0, 1)]),
+    startCenter: p(300, 240), startRadius: 0, endCenter: p(300, 240), endRadius: 560, options: []
 )
 
-// Stars (fixed positions so the icon is reproducible).
-let stars: [(CGFloat, CGFloat, CGFloat, CGFloat)] = [
-    (230, 250, 7, 0.95), (330, 190, 4, 0.7), (420, 300, 5, 0.8), (190, 400, 4, 0.6),
-    (560, 210, 3.5, 0.65), (300, 470, 3, 0.5), (470, 420, 3, 0.45), (820, 470, 4, 0.55),
-    (760, 560, 3, 0.4), (250, 560, 3, 0.35),
-]
-for (x, y, r, a) in stars {
-    ctx.setShadow(offset: .zero, blur: r * 3, color: rgb(0xFFFFFF, a))
-    ctx.setFillColor(rgb(0xFFFFFF, a))
-    ctx.fillEllipse(in: CGRect(x: x - r, y: y - r, width: r * 2, height: r * 2))
-}
-ctx.setShadow(offset: .zero, blur: 0, color: nil)
+// Closed laptop: a thin box, width 1 × depth 0.7 × height h; the lid meets the base at `seam`.
+let w: CGFloat = 0.5, depth: CGFloat = 0.35, h: CGFloat = 0.052, seam = h * 0.45
+let top = [project(-w, h, -depth), project(w, h, -depth), project(w, h, depth), project(-w, h, depth)]
+let front = [project(-w, h, depth), project(w, h, depth), project(w, 0, depth), project(-w, 0, depth)]
+let left = [project(-w, h, -depth), project(-w, h, depth), project(-w, 0, depth), project(-w, 0, -depth)]
 
-// Crescent moon: clip to the disc, then clip *out* the offset bite (even-odd against the canvas).
-let moon = CGRect(x: 610, y: 175, width: 210, height: 210)
-let bite = moon.offsetBy(dx: -62, dy: -34).insetBy(dx: 6, dy: 6)
-let crescent = CGMutablePath()
-crescent.addRect(CGRect(x: 0, y: 0, width: size, height: size))
-crescent.addEllipse(in: bite)
-ctx.saveGState()
-ctx.setShadow(offset: .zero, blur: 70, color: rgb(0xFFE7A0, 0.6))
-ctx.beginTransparencyLayer(auxiliaryInfo: nil)
-ctx.addEllipse(in: moon)
-ctx.clip()
-ctx.addPath(crescent)
-ctx.clip(using: .evenOdd)
-ctx.drawLinearGradient(
-    gradient([(0xFFF4C9, 1, 0), (0xFFD27A, 1, 1)]),
-    start: CGPoint(x: moon.minX, y: moon.minY), end: CGPoint(x: moon.maxX, y: moon.maxY), options: []
-)
-ctx.endTransparencyLayer()
-ctx.restoreGState()
-
-// Closed MacBook seen from the front: lid slab over a slightly wider base.
-let lid = CGRect(x: 232, y: 742, width: 560, height: 46)
-let base = CGRect(x: 206, y: 784, width: 612, height: 30)
-ctx.saveGState()
-ctx.setShadow(offset: CGSize(width: 0, height: 22), blur: 36, color: rgb(0x000000, 0.5))
-ctx.addPath(CGPath(roundedRect: base, cornerWidth: 15, cornerHeight: 15, transform: nil))
-ctx.setFillColor(rgb(0x8E93A8))
-ctx.fillPath()
-ctx.restoreGState()
-
-ctx.saveGState()
-ctx.addPath(CGPath(roundedRect: base, cornerWidth: 15, cornerHeight: 15, transform: nil))
-ctx.clip()
-ctx.drawLinearGradient(
-    gradient([(0xC9CDDB, 1, 0), (0x7C8197, 1, 1)]),
-    start: CGPoint(x: 0, y: base.minY), end: CGPoint(x: 0, y: base.maxY), options: []
-)
-ctx.restoreGState()
-// Thumb notch on the front edge.
-ctx.addPath(CGPath(
-    roundedRect: CGRect(x: 462, y: 784, width: 100, height: 12), cornerWidth: 6, cornerHeight: 6, transform: nil
-))
-ctx.setFillColor(rgb(0x5D6178))
-ctx.fillPath()
-
-ctx.saveGState()
-ctx.addPath(CGPath(roundedRect: lid, cornerWidth: 18, cornerHeight: 18, transform: nil))
-ctx.clip()
-ctx.drawLinearGradient(
-    gradient([(0xF4F6FB, 1, 0), (0xC3C8D8, 1, 0.6), (0xA9AEC2, 1, 1)]),
-    start: CGPoint(x: 0, y: lid.minY), end: CGPoint(x: 0, y: lid.maxY), options: []
-)
-// Specular highlight along the top edge of the lid.
-ctx.setFillColor(rgb(0xFFFFFF, 0.8))
-ctx.fill(CGRect(x: lid.minX, y: lid.minY, width: lid.width, height: 4))
-ctx.restoreGState()
-
-// Heartbeat: the Mac is still alive under the closed lid.
-let pulse = CGMutablePath()
-pulse.move(to: CGPoint(x: 230, y: 640))
-pulse.addLine(to: CGPoint(x: 400, y: 640))
-pulse.addLine(to: CGPoint(x: 440, y: 590))
-pulse.addLine(to: CGPoint(x: 490, y: 700))
-pulse.addLine(to: CGPoint(x: 548, y: 520))
-pulse.addLine(to: CGPoint(x: 596, y: 670))
-pulse.addLine(to: CGPoint(x: 628, y: 640))
-pulse.addLine(to: CGPoint(x: 794, y: 640))
-for (width, blur, alpha) in [(CGFloat(40), CGFloat(50), CGFloat(0.55)), (22, 18, 0.9), (10, 0, 1)] {
+func shade(_ face: [CGPoint], _ stops: [(UInt32, CGFloat, CGFloat)], from: CGPoint, to: CGPoint) {
     ctx.saveGState()
-    ctx.setShadow(offset: .zero, blur: blur, color: rgb(0x2EF2B8, alpha))
-    ctx.addPath(pulse)
-    ctx.setLineWidth(width)
-    ctx.setLineCap(.round)
-    ctx.setLineJoin(.round)
-    ctx.setStrokeColor(width > 10 ? rgb(0x2EF2B8, alpha) : rgb(0xE9FFF7))
-    ctx.strokePath()
+    ctx.addPath(polygon(face))
+    ctx.clip()
+    ctx.drawLinearGradient(gradient(stops), start: from, end: to, options: [.drawsBeforeStartLocation, .drawsAfterEndLocation])
     ctx.restoreGState()
 }
+
+// Contact shadow on the desk.
+ctx.saveGState()
+ctx.setShadow(offset: CGSize(width: 10, height: 30), blur: 70, color: rgb(0x000000, 0.85))
+ctx.addPath(polygon([project(-w, 0, -depth), project(w, 0, -depth), project(w, 0, depth), project(-w, 0, depth)]))
+ctx.setFillColor(rgb(0x000000))
+ctx.fillPath()
+ctx.restoreGState()
+
+// Front and left faces, top to bottom: lit lid lip, dark seam, base. The left side is in shade.
+shade(front, [(0xDADDE4, 1, 0), (0xA9ACB6, 1, 0.52), (0x2C2E33, 1, 0.55), (0x2C2E33, 1, 0.58), (0x8E919B, 1, 0.62), (0x5B5E66, 1, 1)],
+      from: project(0, h, depth), to: project(0, 0, depth))
+shade(left, [(0xC8C8C8, 1, 0), (0x888888, 1, 0.52), (0x2C2E33, 1, 0.55), (0x2C2E33, 1, 0.58), (0x888888, 1, 0.62), (0x484848, 1, 1)],
+      from: project(-w, h, 0), to: project(-w, 0, 0))
+
+// Lid: darker at the back, a broad specular sweep toward the front, and the sparkle's light on it.
+shade(top, [(0x6E717B, 1, 0), (0xA7AAB4, 1, 0.42), (0xEEF0F4, 1, 0.70), (0xBFC2CB, 1, 1)],
+      from: project(-w, h, -depth), to: project(w * 0.6, h, depth))
+ctx.saveGState()
+ctx.addPath(polygon(top))
+ctx.clip()
+let glowOnLid = project(0.05, h, -0.1)
+ctx.drawRadialGradient(
+    gradient([(0x9B8CFF, 0.42, 0), (0x9B8CFF, 0, 1)]),
+    startCenter: glowOnLid, startRadius: 0, endCenter: glowOnLid, endRadius: 240, options: []
+)
+ctx.restoreGState()
+
+ctx.setLineCap(.round)
+
+// Crisp highlight along the lid's front edge.
+ctx.setLineWidth(2.5)
+ctx.setStrokeColor(rgb(0xFFFFFF, 0.95))
+ctx.move(to: top[3]); ctx.addLine(to: top[2]); ctx.strokePath()
+
+// Lid/base seam: a dark gap with a lit edge just under it, along the left and front sides.
+for (offset, color, width) in [(CGFloat(0), rgb(0x1E2024, 0.95), CGFloat(3.5)), (2.5, rgb(0xFFFFFF, 0.25), 1.5)] {
+    let back = project(-w, seam, -depth), corner = project(-w, seam, depth), right = project(w, seam, depth)
+    ctx.setLineWidth(width)
+    ctx.setStrokeColor(color)
+    ctx.move(to: p(back.x, back.y + offset))
+    ctx.addLine(to: p(corner.x, corner.y + offset))
+    ctx.addLine(to: p(right.x, right.y + offset))
+    ctx.strokePath()
+}
+
+// Thumb notch in the lid's front lip.
+let notch = CGMutablePath()
+let notchBottom = project(0, h - (h - seam) * 0.8, depth)
+notch.move(to: project(-0.06, h, depth))
+notch.addQuadCurve(to: project(0.06, h, depth), control: p(notchBottom.x, notchBottom.y + 6))
+notch.closeSubpath()
+ctx.addPath(notch)
+ctx.setFillColor(rgb(0x3A3C42, 0.9))
+ctx.fillPath()
+
+// Two USB-C ports on the left side of the base.
+ctx.setLineWidth(6)
+ctx.setStrokeColor(rgb(0x1A1B1F))
+for z in [CGFloat(-0.12), -0.02] {
+    ctx.move(to: project(-w, seam * 0.5, z)); ctx.addLine(to: project(-w, seam * 0.5, z + 0.05)); ctx.strokePath()
+}
+
+// Softer highlight along the lid's left edge.
+ctx.setLineWidth(2)
+ctx.setStrokeColor(rgb(0xFFFFFF, 0.6))
+ctx.move(to: top[0]); ctx.addLine(to: top[3]); ctx.strokePath()
+
+// Status LED on the base's front edge: still running with the lid closed.
+ctx.saveGState()
+ctx.setShadow(offset: .zero, blur: 24, color: rgb(0x2EF2B8, 1))
+ctx.setLineWidth(7)
+ctx.setStrokeColor(rgb(0x8CFFE0))
+ctx.move(to: project(-0.36, seam * 0.5, depth)); ctx.addLine(to: project(-0.30, seam * 0.5, depth)); ctx.strokePath()
+ctx.restoreGState()
+
+// The sparkle: a four-point star with concave sides, glowing blue → violet.
+let center = p(560, 330), r: CGFloat = 96
+let tips = [p(center.x, center.y - r), p(center.x + r * 0.8, center.y), p(center.x, center.y + r), p(center.x - r * 0.8, center.y)]
+let star = CGMutablePath()
+star.move(to: tips[0])
+for i in 0..<4 {
+    let next = tips[(i + 1) % 4]
+    star.addQuadCurve(to: next, control: lerp(center, lerp(tips[i], next, 0.5), 0.16))
+}
+star.closeSubpath()
+ctx.drawRadialGradient(
+    gradient([(0x7D7BFF, 0.40, 0), (0x7D7BFF, 0.10, 0.45), (0x7D7BFF, 0, 1)]),
+    startCenter: center, startRadius: 0, endCenter: center, endRadius: 320, options: []
+)
+for (blur, alpha) in [(CGFloat(90), CGFloat(0.9)), (34, 0.95)] {
+    ctx.saveGState()
+    ctx.setShadow(offset: .zero, blur: blur, color: rgb(0x8F7BFF, alpha))
+    ctx.addPath(star)
+    ctx.setFillColor(rgb(0x9A8CFF))
+    ctx.fillPath()
+    ctx.restoreGState()
+}
+ctx.saveGState()
+ctx.addPath(star)
+ctx.clip()
+ctx.drawLinearGradient(
+    gradient([(0x8FB4FF, 1, 0), (0xA79BFF, 1, 0.5), (0xD08CFF, 1, 1)]),
+    start: p(center.x - r, center.y - r), end: p(center.x + r, center.y + r), options: []
+)
+ctx.drawRadialGradient(
+    gradient([(0xFFFFFF, 0.9, 0), (0xFFFFFF, 0, 1)]),
+    startCenter: center, startRadius: 0, endCenter: center, endRadius: r * 0.5, options: []
+)
+ctx.restoreGState()
 
 // Glass rim: subtle inner stroke for depth.
 ctx.restoreGState()
 ctx.addPath(tilePath)
 ctx.setLineWidth(3)
-ctx.setStrokeColor(rgb(0xFFFFFF, 0.14))
+ctx.setStrokeColor(rgb(0xFFFFFF, 0.10))
 ctx.strokePath()
 
 let image = ctx.makeImage()!
