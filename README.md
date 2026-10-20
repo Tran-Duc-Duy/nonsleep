@@ -6,16 +6,6 @@ Keep your Mac working **with the lid closed** while your AI coding agents run �
 
 `caffeinate`, Amphetamine's basic mode, and agents' own "prevent sleep" settings all use `IOPMAssertion`, which only blocks *idle* sleep. Closing the lid still sleeps the Mac. The only switch that survives a closed lid is the system flag `pmset disablesleep 1`, which needs root and is easy to forget on. NonSleep turns that flag on only while something actually needs it, and guarantees it turns off again.
 
-<p align="center"><img src="docs/images/meme.png" width="600" alt="Paying $199 for a clip that holds the lid open a crack — no. Close the lid, agents keep running, $0, open source — yes."></p>
-
-<details>
-<summary>More memes</summary>
-<p align="center">
-<img src="docs/images/brain-not-clip.jpg" width="420" alt="Keep your agents running 24/7, $199 — or just use your brain: a robot naps on a closed laptop, still running.">
-<img src="docs/images/lid-closed-mind-open.jpg" width="420" alt="Không cần cái tool này vẫn khiến agent chạy 24/7 — laptop gập nhưng tư duy vẫn mở.">
-</p>
-</details>
-
 - **Agent-aware.** [omp](https://github.com/can1357/oh-my-pi) holds an `"omp agent session"` power assertion exactly while a prompt is in flight, in every project and with every provider; NonSleep watches for it (and for `caffeinate`). Claude Code, Cursor and Antigravity report their turns through official hooks that `nonsleep integrate` installs. A closed MacBook keeps running a long turn — in a terminal, an IDE, or inside Orca — and sleeps when it's done.
 - **Menu bar app + CLI**, sharing one state: `nonsleep run claude`, `nonsleep on 3h`, `nonsleep wait 1234`.
 - **Fail-safe.** Every request is a *lease* tied to a process, an expiry, and the current boot. Crash, `kill -9`, or reboot → the lease dies → a LaunchAgent reaper (every 60 s) restores normal sleep on its next run.

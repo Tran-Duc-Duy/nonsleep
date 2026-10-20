@@ -13,8 +13,8 @@ In short:
 
 ## Reporting
 
-If you experience or witness unacceptable behavior, contact the maintainers privately through the
-contact details on the maintainer's GitHub profile. All reports are reviewed promptly and kept
+If you experience or witness unacceptable behavior, email the maintainer at
+[tranduybthv@gmail.com](mailto:tranduybthv@gmail.com). All reports are reviewed promptly and kept
 confidential. Maintainers may remove, edit or reject contributions and may temporarily or
 permanently ban contributors whose behavior is harmful, following the Covenant's
 [enforcement guidelines](https://www.contributor-covenant.org/version/2/1/code_of_conduct/#enforcement-guidelines).
