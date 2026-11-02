@@ -6,6 +6,10 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- Hook commands written by `nonsleep integrate` now quote the CLI path correctly when the app lives in a directory containing an apostrophe.
+
 ## [0.1.1] - 2026-10-20
 
 ### Changed

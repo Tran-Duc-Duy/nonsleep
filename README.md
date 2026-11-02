@@ -30,7 +30,7 @@ Check the download against `SHA256SUMS.txt` from the same release: `shasum -a 25
 Requires the Swift toolchain (Xcode or Command Line Tools).
 
 ```sh
-git clone <this repo> && cd non-sleep
+git clone <this repo> && cd nonsleep
 scripts/install.sh        # builds, installs ~/Applications/NonSleep.app, runs `nonsleep setup`
 nonsleep status
 ```
