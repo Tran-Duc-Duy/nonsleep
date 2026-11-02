@@ -40,7 +40,8 @@ final class MainWindowController: NSObject, NSWindowDelegate {
 
 struct MainWindow: View {
     @ObservedObject var model: BarModel
-
+    @State private var showCustomTimer = false
+    @State private var customDurationText = ""
     var body: some View {
         Form {
             Section { header }
@@ -78,22 +79,51 @@ struct MainWindow: View {
                     .foregroundStyle(.red)
                     .textSelection(.enabled)
             }
-            HStack {
+            HStack(spacing: 8) {
                 Menu("Keep awake") {
                     Button("For 1 hour") { model.keepAwake(for: 3600) }
                     Button("For 3 hours") { model.keepAwake(for: 3 * 3600) }
                     Button("For 8 hours") { model.keepAwake(for: 8 * 3600) }
                     Button("Until turned off") { model.keepAwake(for: nil) }
+                    Divider()
+                    Button("Custom duration…") { showCustomTimer.toggle() }
                 }
                 .fixedSize()
+                Button("Custom…") { showCustomTimer.toggle() }
+                    .help("Set a custom duration (e.g. 45m for YouTube, 2h for downloads)")
                 Button("Turn off") { model.turnOff() }
                     .disabled(model.status?.leases.isEmpty ?? true)
                 Spacer()
                 Button("Sleep now") { model.sleepNow() }
                     .help("Releases everything and sleeps the Mac. The Apple-menu Sleep item can't while NonSleep holds it awake.")
             }
+            if showCustomTimer {
+                HStack(spacing: 8) {
+                    Image(systemName: "timer")
+                        .foregroundStyle(.secondary)
+                    TextField("e.g. 30m, 45m, 2h, 1h30m (YouTube, downloads)", text: $customDurationText)
+                        .textFieldStyle(.roundedBorder)
+                        .frame(maxWidth: 320)
+                        .onSubmit { applyCustomTimer() }
+                    Button("Set timer") { applyCustomTimer() }
+                        .disabled(Duration.parse(customDurationText) == nil)
+                        .buttonStyle(.borderedProminent)
+                    Button("Cancel") {
+                        showCustomTimer = false
+                        customDurationText = ""
+                    }
+                }
+                .padding(.top, 2)
+            }
         }
         .padding(.vertical, 4)
+    }
+
+    private func applyCustomTimer() {
+        guard let seconds = Duration.parse(customDurationText) else { return }
+        model.keepAwake(for: seconds)
+        showCustomTimer = false
+        customDurationText = ""
     }
 
     @ViewBuilder private var leases: some View {
@@ -149,21 +179,31 @@ struct MainWindow: View {
     @ViewBuilder private var settings: some View {
         Toggle("Keep awake while agents work (Auto)", isOn: $model.autoMode)
         Toggle("Lock the screen when the lid closes", isOn: binding(\.lockOnLidClose))
+        Text("Turns display off on lid close so macOS immediately locks your session.")
+            .font(.caption).foregroundStyle(.secondary)
         Toggle("Sleep as soon as work is done, if the lid is closed", isOn: binding(\.sleepWhenDone))
+        Text("When turns, scripts, or timers finish, automatically sleep if lid is closed.")
+            .font(.caption).foregroundStyle(.secondary)
         Stepper(
             "Pause on battery below \(model.config.minBatteryPercent)%",
             value: binding(\.minBatteryPercent), in: 0...50, step: 5
         )
+        Text("Safeguard: prevents running your battery down to zero in a backpack.")
+            .font(.caption).foregroundStyle(.secondary)
         Stepper(
             "Keep holding \(Duration.format(TimeInterval(model.config.graceSeconds))) after agents finish",
             value: binding(\.graceSeconds), in: 0...900, step: 30
         )
+        Text("Prevents sleep-wake thrashing between consecutive agent prompt turns.")
+            .font(.caption).foregroundStyle(.secondary)
         ListField(title: "Power assertions", prompt: "e.g. omp agent session, caffeinate", values: model.config.assertionNames) {
             names in model.updateConfig { $0.assertionNames = names }
         }
-        ListField(title: "Processes", prompt: "e.g. claude, Orca", values: model.config.processNames) {
+        ListField(title: "Processes", prompt: "e.g. claude, codex, Orca", values: model.config.processNames) {
             names in model.updateConfig { $0.processNames = names }
         }
+        Text("Keep awake while any listed process is running (e.g. codex, brew, rsync).")
+            .font(.caption).foregroundStyle(.secondary)
         Toggle("Launch at login", isOn: Binding(get: { model.launchAtLogin }, set: { model.setLaunchAtLogin($0) }))
         HStack {
             Spacer()

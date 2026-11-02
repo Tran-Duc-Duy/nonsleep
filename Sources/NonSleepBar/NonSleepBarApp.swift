@@ -72,6 +72,8 @@ struct BarMenu: View {
             Button("For 3 hours") { model.keepAwake(for: 3 * 3600) }
             Button("For 8 hours") { model.keepAwake(for: 8 * 3600) }
             Button("Until turned off") { model.keepAwake(for: nil) }
+            Divider()
+            Button("Custom duration…", action: openWindow)
         }
         Button("Turn off") { model.turnOff() }
             .disabled(model.status?.leases.isEmpty ?? true)

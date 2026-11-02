@@ -20,9 +20,14 @@ let usage = """
       config               print the config path and effective config
       setup [--remove]     install (or remove) the sudoers rule, reaper LaunchAgent and ~/.local/bin link
       integrate [AGENT…] [--remove]
-                           add (or remove) hooks for claude, cursor, antigravity; no AGENT: show status
+                           add (or remove) hooks for claude, cursor, antigravity, codex; no AGENT: show status
       hook AGENT EVENT     called by those hooks with the event JSON on stdin
 
+    examples:
+      nonsleep run -- claude          keep awake while claude runs, sleep when done
+      nonsleep on 45m                 keep awake for 45 min (e.g. YouTube, downloads)
+      nonsleep wait 1234              keep awake until PID 1234 exits
+      nonsleep integrate all          1-click install hooks for all supported agents
     """
 
 let engine = NonSleep()

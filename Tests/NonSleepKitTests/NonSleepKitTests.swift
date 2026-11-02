@@ -237,6 +237,8 @@ func makeEngine(_ power: FakePower) -> NonSleep {
             ["version": 1, "hooks": ["stop": [["command": "orca-hook.sh", "timeout": 10]]]]
         case .antigravity:
             ["linter": ["PostToolUse": [["matcher": "run_command", "hooks": [["command": "lint.sh"]]]]]]
+        case .codex:
+            ["UserPromptSubmit": [["hooks": [["type": "command", "command": "lint.sh"]]]]]
         }
     }
 
@@ -289,6 +291,18 @@ func makeEngine(_ power: FakePower) -> NonSleep {
         #expect(busy.action == .working)
         #expect(idle.action == .finished)
         #expect(idle.response == #"{"decision":"stop"}"#, "Stop requires a decision; anything but continue lets it stop")
+    }
+    @Test func codexTurnIsHeldUntilStop() {
+        let payload = Data(#"{"session_id":"codex-123456","cwd":"/Users/me/app"}"#.utf8)
+        let start = Hooks.decide(agent: .codex, event: "UserPromptSubmit", payload: payload)
+        #expect(start.action == .working)
+        #expect(start.leaseID == "codex-codex-123456")
+        #expect(start.reason == "Codex · app")
+        #expect(start.response == "{}")
+
+        let stop = Hooks.decide(agent: .codex, event: "Stop", payload: payload)
+        #expect(stop.action == .finished)
+        #expect(stop.response == "{}")
     }
 }
 

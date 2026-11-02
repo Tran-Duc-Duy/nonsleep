@@ -2,7 +2,7 @@ import Foundation
 
 /// Agents that report turns through hooks. (omp needs none: NonSleep reads its power assertion.)
 public enum HookAgent: String, CaseIterable, Sendable, Identifiable {
-    case claude, cursor, antigravity
+    case claude, cursor, antigravity, codex
 
     public var id: String { rawValue }
 
@@ -11,9 +11,9 @@ public enum HookAgent: String, CaseIterable, Sendable, Identifiable {
         case .claude: "Claude Code"
         case .cursor: "Cursor"
         case .antigravity: "Antigravity"
+        case .codex: "Codex"
         }
     }
-
     /// User-level hooks file. Antigravity's covers the App, the IDE and the CLI.
     public var configURL: URL {
         let home = FileManager.default.homeDirectoryForCurrentUser
@@ -21,6 +21,7 @@ public enum HookAgent: String, CaseIterable, Sendable, Identifiable {
         case .claude: home.appendingPathComponent(".claude/settings.json")
         case .cursor: home.appendingPathComponent(".cursor/hooks.json")
         case .antigravity: home.appendingPathComponent(".gemini/config/hooks.json")
+        case .codex: home.appendingPathComponent(".codex/hooks.json")
         }
     }
 
@@ -43,6 +44,11 @@ public enum HookAgent: String, CaseIterable, Sendable, Identifiable {
             ]
         case .antigravity:
             ["PreInvocation": .working, "PostToolUse": .working, "Stop": .finished]
+        case .codex:
+            [
+                "UserPromptSubmit": .working, "PreToolUse": .working, "PostToolUse": .working,
+                "Stop": .finished, "SubagentStop": .finished,
+            ]
         }
     }
 }
@@ -86,6 +92,10 @@ public enum Hooks {
             } else {
                 response = "{}"
             }
+        case .codex:
+            session = (json["session_id"] ?? json["sessionId"] ?? json["thread_id"]) as? String
+            project = (json["cwd"] ?? json["workspace_path"]) as? String
+            response = "{}"
         }
         let shortSession = String((session ?? "session").prefix(12))
         let name = project.flatMap { $0.split(separator: "/").last.map(String.init) } ?? shortSession
@@ -161,6 +171,10 @@ public enum Integration {
             return hooks.values.contains { entries in
                 (entries as? [[String: Any]] ?? []).contains { isOurs($0, agent) }
             }
+        case .codex:
+            return config.values.contains { entries in
+                (entries as? [[String: Any]] ?? []).contains { isOurs($0, agent) }
+            }
         }
     }
 
@@ -195,6 +209,10 @@ public enum Integration {
                     : [handler(event)]
             }
             config[antigravityKey] = definition
+        case .codex:
+            for event in agent.events.keys {
+                config[event] = (config[event] as? [[String: Any]] ?? []) + [["hooks": [handler(event)]]]
+            }
         }
         return config
     }
@@ -221,12 +239,25 @@ public enum Integration {
                 hooks[event] = kept.isEmpty ? nil : kept
             }
             config["hooks"] = hooks.isEmpty ? nil : hooks
+        case .codex:
+            for (event, value) in config {
+                guard let entries = value as? [[String: Any]] else { continue }
+                let kept = entries.compactMap { entry -> [String: Any]? in
+                    guard var inner = entry["hooks"] as? [[String: Any]] else { return entry }
+                    inner.removeAll { isOurs($0, agent) }
+                    if inner.isEmpty { return nil }
+                    var group = entry
+                    group["hooks"] = inner
+                    return group
+                }
+                config[event] = kept.isEmpty ? nil : kept
+            }
         }
         return config
     }
 
     private static func isOurs(_ entry: [String: Any], _ agent: HookAgent) -> Bool {
-        if agent == .claude, let inner = entry["hooks"] as? [[String: Any]] {
+        if (agent == .claude || agent == .codex), let inner = entry["hooks"] as? [[String: Any]] {
             return inner.contains { isOurs($0, agent) }
         }
         let command = entry["command"] as? String ?? ""
