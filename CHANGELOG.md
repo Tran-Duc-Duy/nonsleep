@@ -6,12 +6,15 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-11-02
+
 ### Added
 
 - Hook integration for OpenAI Codex CLI (`~/.codex/hooks.json`).
 - Custom duration timer input in the menu bar app and management window (e.g. `45m`, `2h`, `1h30m`).
 - Helpful descriptive subtitles in the settings window for locks, safeguards, and process lists.
 - Usage examples in `nonsleep help`.
+- `AGENTS.md` and `llms.txt` specifications for agent and LLM search discoverability.
 
 ### Security
 
@@ -23,7 +26,7 @@ All notable changes to this project are documented here. The format follows
 ### Fixed
 
 - Hook commands written by `nonsleep integrate` now quote the CLI path correctly when the app lives in a directory containing an apostrophe.
-
+- Corrected clone directory in README setup instructions.
 ## [0.1.1] - 2026-10-20
 
 ### Changed
@@ -56,6 +59,7 @@ First public release.
   held by an on-demand keeper process (no root), omp detection via login1 inhibitors, the same
   hooks, lock on lid close via `loginctl`, and `install.sh` with desktop autostart for `nonsleep auto`.
 
-[Unreleased]: ../../compare/v0.1.1...HEAD
+[Unreleased]: ../../compare/v0.2.0...HEAD
+[0.2.0]: ../../compare/v0.1.1...v0.2.0
 [0.1.1]: ../../compare/v0.1.0...v0.1.1
 [0.1.0]: ../../releases/tag/v0.1.0
