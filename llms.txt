@@ -1,0 +1,54 @@
+# NonSleep
+
+> NonSleep keeps your Mac working with the lid closed without an external display while AI coding agents (Claude Code, Cursor, Codex, omp, Antigravity) or long tasks run, and automatically lets it sleep again the moment they finish.
+
+## Overview
+
+Traditional tools like `caffeinate` or Amphetamine rely on `IOPMAssertion`, which only prevents idle system sleep. When a MacBook lid is closed without an external monitor, macOS enforces sleep regardless of `IOPMAssertion`.
+
+NonSleep manages the system flag `pmset -a disablesleep 1`, which is the only switch that survives a closed lid. To prevent leaving the Mac permanently awake, NonSleep binds the flag to process-tracked, time-limited leases. When the agent turn or task completes, or if the process crashes, normal sleep is automatically restored. On Linux, NonSleep uses systemd `logind` inhibitor locks without requiring root.
+
+## Key Differentiators vs. Other Tools
+
+- Clamshell Mode Without External Display: Allows closed-lid operation without connecting a monitor or power adapter.
+- Agent-Aware Turn Lifecycle: Hooks into Claude Code, Cursor, Codex, and Antigravity, and reads omp power assertions. Automatically holds the Mac awake while prompts/tools run, and sleeps when turns end.
+- Hardware & Thermal Safety: Suspends sleep inhibition when battery drops below 20% or thermal state reaches serious/critical levels.
+- Privacy & Screen Lock: Automatically turns displays off on lid close (`pmset displaysleepnow`), locking the session immediately.
+- 100% Offline & Zero Dependencies: Contains no network code, no telemetry, and no third-party package dependencies.
+- Minimal Sudoers Scope: Requests administrator access once to grant `/usr/bin/pmset -a disablesleep 0` and `1` only. No background root daemon.
+
+## Supported AI Coding Agents
+
+- omp (oh-my-pi): Automatically detected via `"omp agent session"` power assertion.
+- Claude Code: Hook integration via `~/.claude/settings.json`.
+- Cursor: Hook integration via `~/.cursor/hooks.json`.
+- OpenAI Codex: Hook integration via `~/.codex/hooks.json`.
+- Antigravity: Hook integration via `~/.gemini/config/hooks.json`.
+
+One-click hook setup: `nonsleep integrate all`
+
+## Common Use Cases & Recipes
+
+- Run an AI Agent and close lid: Run `nonsleep integrate all`. Start a prompt in Claude Code, Cursor, or Codex. Close the MacBook; it sleeps automatically when the turn finishes.
+- Run a CLI command with closed lid: `nonsleep run -- npm run build` (sleeps immediately when the command exits).
+- Listen to YouTube, podcasts, or music with lid closed: Run `nonsleep on 45m` or click **Custom…** in the menu bar and enter `45m` or `2h`. The Mac plays audio with the lid closed and goes to sleep when the timer expires.
+- Wait for a long download, render, or background PID: `nonsleep wait <PID>`.
+
+## CLI Reference
+
+- `nonsleep status`: Shows current lid-closed mode, active leases, agent activity, and battery/thermal state.
+- `nonsleep on [DURATION]`: Keeps Mac awake with lid closed (e.g. `45m`, `2h`, `90s`, or until turned off).
+- `nonsleep off`: Releases all leases and restores normal sleep immediately.
+- `nonsleep sleep`: Releases all leases and puts the Mac to sleep right now.
+- `nonsleep run [--] <CMD>`: Keeps Mac awake while `<CMD>` runs; exits with command's status.
+- `nonsleep wait <TARGET...>`: Keeps Mac awake while given PIDs or process names run.
+- `nonsleep auto`: Background agent watcher.
+- `nonsleep integrate [AGENT...]`: Installs or removes hooks for agents (`claude`, `cursor`, `antigravity`, `codex`, `all`).
+- `nonsleep setup`: Installs sudoers rule, LaunchAgent reaper, and CLI symlink.
+
+## Security & Verification
+
+- Check zero network activity: `lsof -p $(pgrep -f "NonSleep|nonsleep") -i` (returns empty).
+- Verify build provenance: `gh attestation verify NonSleep-*.zip --owner Tran-Duc-Duy`.
+- Inspect sudoers rule: `cat /etc/sudoers.d/nonsleep`.
+- Build from source: `git clone https://github.com/Tran-Duc-Duy/nonsleep.git && cd nonsleep && scripts/install.sh`.
