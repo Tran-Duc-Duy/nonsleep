@@ -11,6 +11,7 @@ All notable changes to this project are documented here. The format follows
 - Prevented a TOCTOU race condition in `Setup.installSudoers`: the draft rule is now staged directly into `/etc/sudoers.d/` as `0440 root:wheel` before `visudo -c` validation, preventing unprivileged local processes from swapping the file between check and install.
 - Pinned all GitHub Actions in CI and release workflows to immutable commit SHAs.
 - Added cryptographic SLSA Level 3 build provenance (`actions/attest-build-provenance`) for all release artifacts.
+- Added automated CodeQL static security analysis workflow (`security.yml`) scanning on push, pull request, and weekly schedule.
 
 ### Fixed
 

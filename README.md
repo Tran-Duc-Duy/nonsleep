@@ -2,6 +2,11 @@
 
 # NonSleep
 
+[![CI](https://github.com/Tran-Duc-Duy/nonsleep/actions/workflows/ci.yml/badge.svg)](https://github.com/Tran-Duc-Duy/nonsleep/actions/workflows/ci.yml)
+[![Security Scan](https://github.com/Tran-Duc-Duy/nonsleep/actions/workflows/security.yml/badge.svg)](https://github.com/Tran-Duc-Duy/nonsleep/actions/workflows/security.yml)
+![Offline](https://img.shields.io/badge/Network-100%25%20Offline-2ea44f)
+![Dependencies](https://img.shields.io/badge/Dependencies-0%20(Pure%20Swift)-2ea44f)
+
 Keep your Mac working **with the lid closed** while your AI coding agents run — and let it sleep again the moment they finish.
 
 `caffeinate`, Amphetamine's basic mode, and agents' own "prevent sleep" settings all use `IOPMAssertion`, which only blocks *idle* sleep. Closing the lid still sleeps the Mac. The only switch that survives a closed lid is the system flag `pmset disablesleep 1`, which needs root and is easy to forget on. NonSleep turns that flag on only while something actually needs it, and guarantees it turns off again.
