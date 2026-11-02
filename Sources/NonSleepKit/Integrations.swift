@@ -99,7 +99,7 @@ public enum Hooks {
 /// Adds or removes NonSleep's entries in an agent's hooks file, leaving every other hook alone.
 public enum Integration {
     public static func command(cli: String, agent: HookAgent, event: String) -> String {
-        "'\(cli)' hook \(agent.rawValue) \(event)"
+        "'\(cli.replacingOccurrences(of: "'", with: "'\\''"))' hook \(agent.rawValue) \(event)"
     }
 
     /// The `nonsleep` binary to put in hook commands: this binary, or the CLI next to the app.

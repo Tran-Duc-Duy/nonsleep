@@ -256,6 +256,13 @@ func makeEngine(_ power: FakePower) -> NonSleep {
         #expect(text(Integration.removing(agent, from: second)) == text(original))
     }
 
+    @Test func hookCommandSurvivesAnApostropheInTheCLIPath() {
+        let command = Integration.command(cli: "/Users/o'brien/Applications/NonSleep.app/Contents/MacOS/nonsleep", agent: .claude, event: "Stop")
+        #expect(command == "'/Users/o'\\''brien/Applications/NonSleep.app/Contents/MacOS/nonsleep' hook claude Stop")
+        let installed = Integration.installing(.claude, cli: "/Users/o'brien/nonsleep", into: existing(.claude))
+        #expect(Integration.isInstalled(.claude, in: installed))
+    }
+
     @Test func claudeTurnIsHeldUntilStopAndPrintsNothing() {
         let payload = Data(#"{"session_id":"abc123def456789","cwd":"/Users/me/proj"}"#.utf8)
         let start = Hooks.decide(agent: .claude, event: "UserPromptSubmit", payload: payload)
