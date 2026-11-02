@@ -15,10 +15,10 @@ jobs:
     name: Release notes
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - name: Extract CHANGELOG section
         run: scripts/release-notes.sh "$GITHUB_REF_NAME" > notes.md
-      - uses: actions/upload-artifact@v7
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: notes
           path: notes.md
@@ -28,8 +28,8 @@ jobs:
     needs: notes
     runs-on: macos-15
     steps:
-      - uses: actions/checkout@v7
-      - uses: maxim-lobanov/setup-xcode@v1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1
         with:
           xcode-version: latest-stable
       - name: Test
@@ -43,7 +43,7 @@ jobs:
         run: |
           mkdir -p dist
           ditto -c -k --sequesterRsrc --keepParent build/NonSleep.app "dist/NonSleep-${GITHUB_REF_NAME#v}-macOS.zip"
-      - uses: actions/upload-artifact@v7
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: macos
           path: dist/*
@@ -62,7 +62,7 @@ jobs:
     # Jammy's glibc (2.35) keeps the binary runnable on older distributions.
     container: swift:6.3-jammy
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - name: Test
         run: swift test
       - name: Build (Swift runtime linked statically)
@@ -77,7 +77,7 @@ jobs:
           cp scripts/uninstall-linux.sh "$name/uninstall.sh"
           cp LICENSE README.md "$name/"
           tar -czf "dist/$name.tar.gz" "$name"
-      - uses: actions/upload-artifact@v7
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: linux-${{ matrix.arch }}
           path: dist/*
@@ -88,8 +88,10 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      id-token: write
+      attestations: write
     steps:
-      - uses: actions/download-artifact@v8
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           path: artifacts
       - name: Checksums
@@ -97,6 +99,10 @@ jobs:
           mkdir dist
           find artifacts -type f ! -name notes.md -exec mv {} dist/ \;
           (cd dist && sha256sum -- * > SHA256SUMS.txt && cat SHA256SUMS.txt)
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v2
+        with:
+          subject-path: 'dist/*'
       - name: Create release
         env:
           GH_TOKEN: ${{ github.token }}
