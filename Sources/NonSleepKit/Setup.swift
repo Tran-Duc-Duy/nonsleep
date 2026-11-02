@@ -90,8 +90,15 @@ public enum Setup {
         try rule.write(to: draft, atomically: true, encoding: .utf8)
         defer { try? FileManager.default.removeItem(at: draft) }
         let path = shellQuoted(draft.path)
+        let staged = shellQuoted("/etc/sudoers.d/.nonsleep.tmp.\(UUID().uuidString)")
+        let target = shellQuoted(sudoersPath)
+        // Copy into root-owned /etc/sudoers.d first, then validate the root copy with visudo.
+        // This prevents TOCTOU race conditions where an unprivileged process swaps the user temp file.
         try runAsAdministrator(
-            "/usr/sbin/visudo -cf \(path) >/dev/null && /usr/bin/install -m 0440 -o root -g wheel \(path) \(shellQuoted(sudoersPath))"
+            "/usr/bin/install -m 0440 -o root -g wheel \(path) \(staged) && "
+                + "/usr/sbin/visudo -cf \(staged) >/dev/null && "
+                + "/bin/mv -f \(staged) \(target) || "
+                + "(/bin/rm -f \(staged); exit 1)"
         )
     }
 

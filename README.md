@@ -18,12 +18,20 @@ Keep your Mac working **with the lid closed** while your AI coding agents run �
 
 1. Download `NonSleep-X.Y.Z-macOS.zip` from [Releases](../../releases/latest), unzip, and move
    **NonSleep.app** to `/Applications` or `~/Applications`. It's a universal app (Apple silicon and Intel).
-2. The app is ad-hoc signed, not notarized, so the first launch is blocked. Open it once, then go to
-   *System Settings › Privacy & Security* and click **Open Anyway**, or run
-   `xattr -dr com.apple.quarantine /Applications/NonSleep.app`.
+2. The app is ad-hoc signed, not notarized (Apple requires a paid $99/yr developer account for notarization), so macOS Gatekeeper prompts an unverified developer warning on first launch. Open it once, then go to *System Settings › Privacy & Security* and click **Open Anyway**, or run:
+   ```sh
+   xattr -dr com.apple.quarantine /Applications/NonSleep.app
+   ```
 3. The NonSleep window opens: click **Finish setup…** and approve the administrator dialog.
 
-Check the download against `SHA256SUMS.txt` from the same release: `shasum -a 256 NonSleep-*.zip`.
+Verify download integrity and cryptographic build provenance:
+```sh
+# Verify SLSA build provenance (verifies binary was built on GitHub Actions from this repo)
+gh attestation verify NonSleep-*.zip --owner Tran-Duc-Duy
+
+# Or check SHA-256 checksum against SHA256SUMS.txt in the release
+shasum -a 256 NonSleep-*.zip
+```
 
 ### From source
 
@@ -185,6 +193,20 @@ Source map (`Sources/`):
 | `NonSleepBar/NonSleepBarApp.swift` | app entry, delegate, menu bar menu |
 | `NonSleepBar/BarModel.swift` | state and actions shared by menu and window |
 | `NonSleepBar/MainWindow.swift` | management window |
+
+## Security, Privacy & Auditability
+
+NonSleep is designed for maximum transparency and minimal privilege:
+
+- **100% Offline (Air-gapped)**: Contains zero network imports (`URLSession`, `Network`, sockets). Never sends telemetry, prompts, tokens, or system data anywhere. Verify with `lsof -p $(pgrep -f "NonSleep|nonsleep") -i` (returns nothing).
+- **Zero Third-Party Dependencies**: 0 npm packages, 0 Swift Package Manager remote dependencies. Links only standard library and Apple system frameworks (`AppKit`, `SwiftUI`, `IOKit`, `CoreGraphics`).
+- **Minimal Privilege (No Root Daemon)**: Does not run any background daemon as root. Setup requests administrator rights once to install a single-line sudoers rule strictly limited to `/usr/bin/pmset -a disablesleep 0` and `1`.
+- **TOCTOU-Proof Setup**: The sudoers file is staged into `/etc/sudoers.d/` as `0440 root:wheel` before `visudo -c` validation to prevent local race conditions.
+- **Non-Intrusive Agent Hooks**: Hook scripts for Claude Code, Cursor, and Antigravity only notify when turns start and finish. They never approve, deny, modify, or read agent prompt contents.
+- **Verifiable Supply Chain**: All CI/release GitHub Actions are pinned to immutable commit SHAs, and release artifacts include GitHub Artifact Attestations (SLSA Level 3).
+- **Build from Source**: If you prefer not to run pre-compiled binaries, building directly from source takes ~30 seconds: `git clone https://github.com/Tran-Duc-Duy/nonsleep.git && cd nonsleep && scripts/install.sh`.
+
+See [SECURITY.md](SECURITY.md) for full threat model details and reporting procedures.
 
 ## Caveats
 

@@ -189,6 +189,13 @@ struct MainWindow: View {
                     .disabled(model.settingUp)
             }
         }
+        HStack {
+            Text("NonSleep is 100% offline (zero network access, no telemetry, no root daemon). The sudoers rule allows only `pmset -a disablesleep 0|1`.")
+                .font(.caption).foregroundStyle(.secondary)
+            Spacer()
+            Link("Security Policy", destination: URL(string: "https://github.com/Tran-Duc-Duy/nonsleep/blob/main/SECURITY.md")!)
+                .font(.caption)
+        }
     }
 
     // MARK: Helpers
