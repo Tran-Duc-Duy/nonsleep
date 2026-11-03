@@ -137,6 +137,9 @@ nonsleep wait TARGET…         hold while PIDs or process names (claude, omp) r
 nonsleep auto                 headless auto mode (same logic as the menu bar app)
 nonsleep reap                 sweep dead leases, re-apply state (LaunchAgent)
 nonsleep config               print config path and effective config
+nonsleep doctor               verify sudoers, reaper, screen lock, hooks, and conflicting apps
+nonsleep history [--clear]    show recent sleep session history, duration and battery stats
+nonsleep mcp                  run stdio Model Context Protocol server for AI coding agents
 nonsleep integrate [AGENT…]   add hooks for claude / cursor / antigravity / all (--remove to undo); no AGENT: status
 nonsleep hook AGENT EVENT     what those hooks call (event JSON on stdin; always exits 0)
 ```
@@ -174,7 +177,13 @@ Each turn's lease belongs to the agent process that ran the hook (the first ance
   "graceSeconds": 120,
   "sleepWhenDone": true,
   "lockOnLidClose": true,
-  "hookTimeoutMinutes": 30
+  "hookTimeoutMinutes": 30,
+  "soundEnabled": false,
+  "soundPath": null,
+  "backpackProtection": true,
+  "historyMaxEntries": 50,
+  "historyRetentionDays": 30,
+  "language": "auto"
 }
 ```
 
@@ -183,6 +192,24 @@ Each turn's lease belongs to the agent process that ran the hook (the first ance
 - `sleepWhenDone`: when the flag drops with the lid closed and no external display, run `pmset sleepnow`.
 - `lockOnLidClose`: menu bar app only; see *Lock on lid close* above.
 - `hookTimeoutMinutes`: how long a hook-reported turn holds after the agent's last hook event.
+- `soundEnabled` / `soundPath`: chime when the last lease drops. `soundPath` takes any `.aiff`/`.wav`/`.mp3`; `null` uses the macOS system sound.
+- `backpackProtection`: with the lid closed on battery and no external display, release at `fair` thermal instead of waiting for `serious` — a closed Mac in a bag has no airflow.
+- `historyMaxEntries` / `historyRetentionDays`: bounds on `history.json`. `historyMaxEntries: 0` turns history off; `historyRetentionDays: 0` keeps entries until the count evicts them.
+- `language`: `auto` (follow the system), `en`, or `vi`. The menu bar app has a picker under *Settings*; the CLI uses it for status lines and lease reasons. An unrecognised code falls back to `auto` without invalidating the rest of the config.
+
+### Session history
+
+`nonsleep history` prints recent sessions with duration, battery delta, and the hottest thermal state reached. The file can't grow unbounded:
+
+| Bound | Effect |
+| --- | --- |
+| `historyMaxEntries` (50) | Oldest sessions are evicted on every write. |
+| `historyRetentionDays` (30) | Entries past the window are dropped on the next write. |
+| 80-character reason | Lease reasons (including arbitrary text from MCP callers) are truncated before they are written. |
+| 5-second minimum | A reconcile that flips the flag twice isn't a session and isn't recorded. |
+| 64 KiB file ceiling | A file over the ceiling is deleted instead of parsed, so a corrupt or tampered file can't be loaded into memory. |
+
+At the defaults that is ~250 B per session and ~12 KB at the cap. `nonsleep history --clear` removes the file.
 
 ## How it works
 
@@ -236,7 +263,7 @@ Built with pure Swift, AppKit, and SwiftUI — no Electron, no Node.js, and zero
 | Metric | NonSleep Measurement | Real-World Impact |
 |---|---|---|
 | **App Bundle Size** | **2.5 MB** | Universal binary (`arm64` + `x86_64`) + assets |
-| **CLI Binary Size** | **452 KB** | Standalone native binary (`nonsleep`) |
+| **CLI Binary Size** | **573 KB** | Standalone native binary (`nonsleep`), including the MCP server |
 | **Idle CPU Usage** | **0.0% – 0.1%** | Pure IOKit event-driven callbacks; zero CPU wakeups |
 | **CLI Execution Speed** | **~0.03 seconds** | Subcommands execute in ~30 ms, then immediately exit |
 | **Memory (RAM)** | **~3.9 MB** (CLI) / **~25 MB** (App) | Native lightweight footprint vs 300–800 MB for Electron apps |

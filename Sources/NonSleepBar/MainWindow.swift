@@ -42,14 +42,16 @@ struct MainWindow: View {
     @ObservedObject var model: BarModel
     @State private var showCustomTimer = false
     @State private var customDurationText = ""
+    private var language: Language { model.config.language }
+
     var body: some View {
         Form {
             Section { header }
-            Section("Keeping the Mac awake") { leases }
-            Section("Agents") { agents }
-            Section("Integrations") { integrations }
-            Section("Settings") { settings }
-            Section("Setup") { setup }
+            Section(L10n.sectionKeepingAwake(language)) { leases }
+            Section(L10n.sectionAgents(language)) { agents }
+            Section(L10n.sectionIntegrations(language)) { integrations }
+            Section(L10n.sectionSettings(language)) { settings }
+            Section(L10n.sectionSetup(language)) { setup }
         }
         .formStyle(.grouped)
         .frame(minWidth: 480, idealWidth: 520, minHeight: 560, idealHeight: 760)
@@ -80,38 +82,46 @@ struct MainWindow: View {
                     .textSelection(.enabled)
             }
             HStack(spacing: 8) {
-                Menu("Keep awake") {
-                    Button("For 1 hour") { model.keepAwake(for: 3600) }
-                    Button("For 3 hours") { model.keepAwake(for: 3 * 3600) }
-                    Button("For 8 hours") { model.keepAwake(for: 8 * 3600) }
-                    Button("Until turned off") { model.keepAwake(for: nil) }
+                Menu(L10n.keepAwake(language)) {
+                    Button(L10n.forOneHour(language)) { model.keepAwake(for: 3600) }
+                    Button(L10n.forThreeHours(language)) { model.keepAwake(for: 3 * 3600) }
+                    Button(L10n.forEightHours(language)) { model.keepAwake(for: 8 * 3600) }
+                    Button(L10n.untilTurnedOff(language)) { model.keepAwake(for: nil) }
                     Divider()
-                    Button("Custom duration…") { showCustomTimer.toggle() }
+                    Button(L10n.customDuration(language)) { showCustomTimer.toggle() }
+                        .help(L10n.customDurationHelp(language))
                 }
                 .fixedSize()
-                Button("Custom…") { showCustomTimer.toggle() }
-                    .help("Set a custom duration (e.g. 45m for YouTube, 2h for downloads)")
-                Button("Turn off") { model.turnOff() }
+                Button(L10n.turnOff(language)) { model.turnOff() }
                     .disabled(model.status?.leases.isEmpty ?? true)
                 Spacer()
-                Button("Sleep now") { model.sleepNow() }
-                    .help("Releases everything and sleeps the Mac. The Apple-menu Sleep item can't while NonSleep holds it awake.")
+                Button(L10n.sleepNow(language)) { model.sleepNow() }
+                    .help(L10n.sleepNowHelp(language))
             }
             if showCustomTimer {
-                HStack(spacing: 8) {
-                    Image(systemName: "timer")
-                        .foregroundStyle(.secondary)
-                    TextField("e.g. 30m, 45m, 2h, 1h30m (YouTube, downloads)", text: $customDurationText)
-                        .textFieldStyle(.roundedBorder)
-                        .frame(maxWidth: 320)
-                        .onSubmit { applyCustomTimer() }
-                    Button("Set timer") { applyCustomTimer() }
-                        .disabled(Duration.parse(customDurationText) == nil)
-                        .buttonStyle(.borderedProminent)
-                    Button("Cancel") {
-                        showCustomTimer = false
-                        customDurationText = ""
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack(spacing: 8) {
+                        Image(systemName: "timer")
+                            .foregroundStyle(.secondary)
+                        // `labelsHidden` is load-bearing: inside a grouped Form, a TextField's
+                        // first argument becomes a leading label, so the hint would wrap to its
+                        // left instead of sitting in the field. The hint belongs in `prompt`.
+                        TextField("", text: $customDurationText, prompt: Text(L10n.customDurationExamples(language)))
+                            .labelsHidden()
+                            .textFieldStyle(.roundedBorder)
+                            .frame(maxWidth: 180)
+                            .onSubmit { applyCustomTimer() }
+                        Button(L10n.setTimer(language)) { applyCustomTimer() }
+                            .disabled(Duration.parse(customDurationText) == nil)
+                            .buttonStyle(.borderedProminent)
+                        Button(L10n.cancel(language)) {
+                            showCustomTimer = false
+                            customDurationText = ""
+                        }
+                        Spacer(minLength: 0)
                     }
+                    Text(L10n.customDurationPrompt(language))
+                        .font(.caption).foregroundStyle(.secondary)
                 }
                 .padding(.top, 2)
             }
@@ -129,7 +139,7 @@ struct MainWindow: View {
     @ViewBuilder private var leases: some View {
         let leases = model.status?.leases ?? []
         if leases.isEmpty {
-            Text("Nothing. Closing the lid sleeps the Mac as usual.")
+            Text(L10n.noLeases(language))
                 .foregroundStyle(.secondary)
         }
         ForEach(leases) { lease in
@@ -139,19 +149,19 @@ struct MainWindow: View {
                     Text(lease.detail).font(.caption).foregroundStyle(.secondary)
                 }
                 Spacer()
-                Button("Release") { model.release(id: lease.id) }
-                    .help("A running `nonsleep run/wait/auto` takes its lease back on its next tick.")
+                Button(L10n.release(language)) { model.release(id: lease.id) }
+                    .help(L10n.releaseHelp(language))
             }
         }
     }
 
     @ViewBuilder private var agents: some View {
         if model.pausedUntilWake {
-            Label("Auto mode is paused until you wake the screen.", systemImage: "pause.circle")
+            Label(L10n.autoPausedUntilWake(language), systemImage: "pause.circle")
                 .foregroundStyle(.secondary)
         }
         if model.agents.isEmpty {
-            Text("No agent is working right now.").foregroundStyle(.secondary)
+            Text(L10n.noAgentWorking(language)).foregroundStyle(.secondary)
         }
         ForEach(model.agents, id: \.self) { agent in
             Label(agent, systemImage: "waveform.path.ecg")
@@ -159,7 +169,7 @@ struct MainWindow: View {
     }
 
     @ViewBuilder private var integrations: some View {
-        SetupRow(ok: true, title: "omp", detail: "Built in: detected through its \"omp agent session\" power assertion")
+        SetupRow(ok: true, title: "omp", detail: L10n.ompBuiltIn(language))
         ForEach(HookAgent.allCases) { agent in
             Toggle(isOn: Binding(
                 get: { model.integrations[agent] ?? false },
@@ -167,73 +177,86 @@ struct MainWindow: View {
             )) {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(agent.displayName)
-                    Text("Hooks in \(agent.configURL.path.replacingOccurrences(of: NSHomeDirectory(), with: "~"))")
+                    Text(L10n.hooksIn(agent.configURL.path.replacingOccurrences(of: NSHomeDirectory(), with: "~"))(language))
                         .font(.caption).foregroundStyle(.secondary)
                 }
             }
         }
-        Text("Hooks hold the Mac awake during each turn and release it when the turn ends, or \(model.config.hookTimeoutMinutes) min after the agent's last activity. Other hooks in those files are left untouched; the first edit keeps a .nonsleep-backup copy.")
+        Text(L10n.hooksExplanation(model.config.hookTimeoutMinutes)(language))
             .font(.caption).foregroundStyle(.secondary)
     }
 
     @ViewBuilder private var settings: some View {
-        Toggle("Keep awake while agents work (Auto)", isOn: $model.autoMode)
-        Toggle("Lock the screen when the lid closes", isOn: binding(\.lockOnLidClose))
-        Text("Turns display off on lid close so macOS immediately locks your session.")
+        Picker(L10n.settingLanguage(language), selection: binding(\.language)) {
+            ForEach(Language.allCases) { option in
+                Text(option.displayName).tag(option)
+            }
+        }
+        Toggle(L10n.settingAuto(language), isOn: $model.autoMode)
+        Toggle(L10n.settingLockOnLidClose(language), isOn: binding(\.lockOnLidClose))
+        Text(L10n.settingLockOnLidCloseHelp(language))
             .font(.caption).foregroundStyle(.secondary)
-        Toggle("Sleep as soon as work is done, if the lid is closed", isOn: binding(\.sleepWhenDone))
-        Text("When turns, scripts, or timers finish, automatically sleep if lid is closed.")
+        Toggle(L10n.settingSleepWhenDone(language), isOn: binding(\.sleepWhenDone))
+        Text(L10n.settingSleepWhenDoneHelp(language))
+            .font(.caption).foregroundStyle(.secondary)
+        Toggle(L10n.settingSound(language), isOn: binding(\.soundEnabled))
+        Text(L10n.settingSoundHelp(language))
+            .font(.caption).foregroundStyle(.secondary)
+        Toggle(L10n.settingBackpack(language), isOn: binding(\.backpackProtection))
+        Text(L10n.settingBackpackHelp(language))
             .font(.caption).foregroundStyle(.secondary)
         Stepper(
-            "Pause on battery below \(model.config.minBatteryPercent)%",
+            L10n.settingMinBattery(model.config.minBatteryPercent)(language),
             value: binding(\.minBatteryPercent), in: 0...50, step: 5
         )
-        Text("Safeguard: prevents running your battery down to zero in a backpack.")
+        Text(L10n.settingMinBatteryHelp(language))
             .font(.caption).foregroundStyle(.secondary)
         Stepper(
-            "Keep holding \(Duration.format(TimeInterval(model.config.graceSeconds))) after agents finish",
+            L10n.settingGrace(Duration.format(TimeInterval(model.config.graceSeconds)))(language),
             value: binding(\.graceSeconds), in: 0...900, step: 30
         )
-        Text("Prevents sleep-wake thrashing between consecutive agent prompt turns.")
+        Text(L10n.settingGraceHelp(language))
             .font(.caption).foregroundStyle(.secondary)
-        ListField(title: "Power assertions", prompt: "e.g. omp agent session, caffeinate", values: model.config.assertionNames) {
-            names in model.updateConfig { $0.assertionNames = names }
-        }
-        ListField(title: "Processes", prompt: "e.g. claude, codex, Orca", values: model.config.processNames) {
-            names in model.updateConfig { $0.processNames = names }
-        }
-        Text("Keep awake while any listed process is running (e.g. codex, brew, rsync).")
+        ListField(
+            title: L10n.settingAssertions(language), prompt: L10n.settingAssertionsPrompt(language),
+            values: model.config.assertionNames
+        ) { names in model.updateConfig { $0.assertionNames = names } }
+        ListField(
+            title: L10n.settingProcesses(language), prompt: L10n.settingProcessesPrompt(language),
+            values: model.config.processNames
+        ) { names in model.updateConfig { $0.processNames = names } }
+        Text(L10n.settingProcessesHelp(language))
             .font(.caption).foregroundStyle(.secondary)
-        Toggle("Launch at login", isOn: Binding(get: { model.launchAtLogin }, set: { model.setLaunchAtLogin($0) }))
+        Toggle(L10n.settingLaunchAtLogin(language), isOn: Binding(get: { model.launchAtLogin }, set: { model.setLaunchAtLogin($0) }))
         HStack {
             Spacer()
-            Button("Open config.json") { model.openConfigFile() }
+            Button(L10n.openConfigFile(language)) { model.openConfigFile() }
         }
     }
 
     @ViewBuilder private var setup: some View {
-        SetupRow(ok: model.setup.sudoers, title: "Passwordless pmset rule", detail: Setup.sudoersPath)
-        SetupRow(ok: model.setup.reaper, title: "Reaper LaunchAgent", detail: "Clears crashed or expired leases every minute")
+        SetupRow(ok: model.setup.sudoers, title: L10n.setupSudoers(language), detail: Setup.sudoersPath)
+        SetupRow(ok: model.setup.reaper, title: L10n.setupReaper(language), detail: L10n.setupReaperDetail(language))
         let delay = model.setup.screenLockDelay ?? "unknown"
         SetupRow(
             ok: delay == "immediate" || !model.config.lockOnLidClose,
-            title: "Screen lock delay: \(delay)",
-            detail: "Locking on lid close needs System Settings › Lock Screen › Require password: Immediately"
+            title: L10n.setupScreenLock(delay)(language),
+            detail: L10n.setupScreenLockDetail(language)
         )
         if !model.setup.ready {
             HStack {
-                Text("One administrator password, once: lets NonSleep toggle `pmset disablesleep` and clean up after crashes.")
+                Text(L10n.setupAdminPrompt(language))
                     .font(.callout)
                 Spacer()
-                Button("Finish setup…") { model.finishSetup() }
+                Button(L10n.finishSetup(language)) { model.finishSetup() }
                     .disabled(model.settingUp)
             }
         }
         HStack {
-            Text("NonSleep is 100% offline (zero network access, no telemetry, no root daemon). The sudoers rule allows only `pmset -a disablesleep 0|1`.")
+            Text(L10n.setupOfflineNote(language))
                 .font(.caption).foregroundStyle(.secondary)
             Spacer()
-            Link("Security Policy", destination: URL(string: "https://github.com/Tran-Duc-Duy/nonsleep/blob/main/SECURITY.md")!)
+            Link(L10n.securityPolicy(language), destination: URL(string: "https://github.com/Tran-Duc-Duy/nonsleep/blob/main/SECURITY.md")!)
                 .font(.caption)
         }
     }

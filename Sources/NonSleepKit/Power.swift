@@ -1,5 +1,10 @@
 import Foundation
 
+/// Reported to MCP clients in `serverInfo`. Bump with the release tag and CHANGELOG entry.
+public enum NonSleepVersion {
+    public static let current = "0.2.0"
+}
+
 public enum Thermal: String, Sendable, Comparable {
     case nominal, fair, serious, critical
 

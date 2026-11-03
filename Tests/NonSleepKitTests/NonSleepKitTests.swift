@@ -355,3 +355,178 @@ func makeEngine(_ power: FakePower) -> NonSleep {
         #expect(!desktop.onBattery && desktop.percent == nil)
     }
 }
+
+@Suite struct ExtendedFeatures {
+    /// Every bound that stops `history.json` from growing without limit.
+    func temporaryStore(maxEntries: Int = 50, retentionDays: Int = 30) -> (HistoryStore, URL) {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let store = HistoryStore(
+            fileURL: directory.appendingPathComponent("history.json"),
+            maxEntries: maxEntries, retentionDays: retentionDays
+        )
+        return (store, directory)
+    }
+
+    @Test func historyKeepsNewestEntriesOnly() throws {
+        let (store, directory) = temporaryStore(maxEntries: 2)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let start = Date()
+
+        for index in 1...5 {
+            let from = start.addingTimeInterval(Double(index) * 600)
+            #expect(try store.record(
+                startedAt: from, endedAt: from.addingTimeInterval(300), reason: "session \(index)",
+                startBattery: 90, endBattery: 88, peakThermal: "nominal", now: from
+            ))
+        }
+
+        let kept = store.load(now: start.addingTimeInterval(3000))
+        #expect(kept.map(\.reason) == ["session 5", "session 4"])
+        #expect(kept[0].startBatteryPercent == 90 && kept[0].endBatteryPercent == 88)
+
+        try store.clear()
+        #expect(store.load().isEmpty)
+        #expect(store.fileSize == 0)
+    }
+
+    @Test func historyDropsEntriesPastTheRetentionWindow() throws {
+        let (store, directory) = temporaryStore(retentionDays: 7)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let now = Date()
+        let old = now.addingTimeInterval(-10 * 86_400)
+        let recent = now.addingTimeInterval(-2 * 86_400)
+
+        try store.save([
+            SessionRecord(startedAt: old, endedAt: old.addingTimeInterval(600), reason: "old"),
+            SessionRecord(startedAt: recent, endedAt: recent.addingTimeInterval(600), reason: "recent"),
+        ], now: now)
+
+        #expect(store.load(now: now).map(\.reason) == ["recent"])
+    }
+
+    @Test func historyRejectsUnboundedReasonsAndChurn() throws {
+        let (store, directory) = temporaryStore()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let start = Date()
+
+        // A lease reason is attacker-shaped input: an MCP caller passes arbitrary text.
+        let huge = String(repeating: "x", count: 10_000)
+        #expect(try store.record(
+            startedAt: start, endedAt: start.addingTimeInterval(600), reason: huge,
+            startBattery: nil, endBattery: nil, peakThermal: "nominal", now: start
+        ))
+        let stored = store.load(now: start)[0].reason
+        #expect(stored.count == SessionRecord.maxReasonLength)
+        #expect(stored.hasSuffix("…"))
+
+        // A reconcile that flips the flag twice is not a session.
+        #expect(try store.record(
+            startedAt: start, endedAt: start.addingTimeInterval(1), reason: "blink",
+            startBattery: nil, endBattery: nil, peakThermal: "nominal", now: start
+        ) == false)
+        #expect(store.load(now: start).count == 1)
+    }
+
+    @Test func historyDiscardsAnOversizedOrCorruptFile() throws {
+        let (store, directory) = temporaryStore()
+        defer { try? FileManager.default.removeItem(at: directory) }
+
+        try Data(repeating: 0x41, count: HistoryStore.maxFileBytes + 1).write(to: store.fileURL)
+        #expect(store.load().isEmpty)
+        #expect(!FileManager.default.fileExists(atPath: store.fileURL.path))
+
+        try Data("not json".utf8).write(to: store.fileURL)
+        #expect(store.load().isEmpty)
+    }
+
+    @Test func historyOffWritesNothing() throws {
+        let (store, directory) = temporaryStore(maxEntries: 0)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let start = Date()
+
+        store.openSession(at: start, reason: "agent turn", battery: 80, thermal: .nominal)
+        #expect(try store.record(
+            startedAt: start, endedAt: start.addingTimeInterval(600), reason: "agent turn",
+            startBattery: 80, endBattery: 78, peakThermal: "nominal", now: start
+        ) == false)
+        #expect(store.fileSize == 0)
+        #expect(!FileManager.default.fileExists(atPath: store.markerURL.path))
+    }
+
+    @Test func sessionRecordsThePeakThermalNotTheFinalOne() throws {
+        let (store, directory) = temporaryStore()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let start = Date()
+
+        store.openSession(at: start, reason: "long build", battery: 92, thermal: .nominal)
+        store.observe(thermal: .serious)
+        store.observe(thermal: .fair)  // cooled down: the peak must not drop
+        #expect(store.closeSession(at: start.addingTimeInterval(1800), battery: 71, thermal: .nominal))
+
+        let records = store.load(now: start.addingTimeInterval(1800))
+        #expect(records.count == 1)
+        #expect(records[0].peakThermalState == "serious")
+        #expect(records[0].startBatteryPercent == 92 && records[0].endBatteryPercent == 71)
+        #expect(records[0].duration == 1800)
+        // The open-session marker is consumed, so a second close records nothing.
+        #expect(store.closeSession(at: start.addingTimeInterval(3600), battery: 60, thermal: .nominal) == false)
+        #expect(store.load(now: start.addingTimeInterval(3600)).count == 1)
+    }
+
+    @Test func backpackProtectionBlocker() {
+        // Enclosed in backpack: lid closed, on battery, no external display, and thermal >= fair
+        let enclosedFair = PowerSnapshot(lidClosed: true, externalDisplay: false, onBattery: true, thermal: .fair)
+        #expect(Policy.blocker(enclosedFair, minBatteryPercent: 20, backpackProtection: true) != nil)
+        // With backpackProtection disabled, fair thermal does not block
+        #expect(Policy.blocker(enclosedFair, minBatteryPercent: 20, backpackProtection: false) == nil)
+        // With external display connected, it's not a backpack
+        let deskMode = PowerSnapshot(lidClosed: true, externalDisplay: true, onBattery: true, thermal: .fair)
+        #expect(Policy.blocker(deskMode, minBatteryPercent: 20, backpackProtection: true) == nil)
+    }
+
+    @Test func configExtendedFields() throws {
+        let json = """
+        {
+            "soundEnabled": true,
+            "soundPath": "/System/Library/Sounds/Glass.aiff",
+            "backpackProtection": false
+        }
+        """
+        let config = try JSONDecoder().decode(Config.self, from: Data(json.utf8))
+        #expect(config.soundEnabled == true)
+        #expect(config.soundPath == "/System/Library/Sounds/Glass.aiff")
+        #expect(config.backpackProtection == false)
+        #expect(config.assertionNames == Config.defaults.assertionNames)
+    }
+
+    @Test func statusAndBlockersFollowTheConfiguredLanguage() {
+        let awake = Status(
+            power: PowerSnapshot(sleepDisabled: true), leases: [], blockedBy: nil,
+            setByOtherTool: false, language: .vi
+        )
+        #expect(awake.headline == "Vẫn chạy khi gập nắp máy")
+
+        let english = Status(
+            power: PowerSnapshot(sleepDisabled: true), leases: [], blockedBy: nil,
+            setByOtherTool: false, language: .en
+        )
+        #expect(english.headline == "Stays awake with the lid closed")
+
+        let flat = PowerSnapshot(onBattery: true, batteryPercent: 5)
+        #expect(Policy.blocker(flat, minBatteryPercent: 20, language: .vi) == "pin 5% < 20%")
+        #expect(Policy.blocker(flat, minBatteryPercent: 20, language: .en) == "battery 5% < 20%")
+    }
+
+    @Test func unknownLanguageCodeKeepsTheRestOfTheConfig() throws {
+        let config = try JSONDecoder().decode(
+            Config.self, from: Data(#"{"language":"klingon","minBatteryPercent":35}"#.utf8)
+        )
+        #expect(config.language == .auto)
+        #expect(config.minBatteryPercent == 35)
+
+        let vietnamese = try JSONDecoder().decode(Config.self, from: Data(#"{"language":"vi"}"#.utf8))
+        #expect(vietnamese.language == .vi)
+        #expect(vietnamese.language.resolved == .vi)
+    }
+}

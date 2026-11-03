@@ -1,54 +1,43 @@
 # NonSleep
 
-> NonSleep keeps your Mac working with the lid closed without an external display while AI coding agents (Claude Code, Cursor, Codex, omp, Antigravity) or long tasks run, and automatically lets it sleep again the moment they finish.
+> NonSleep keeps a MacBook working with the lid closed and no external display while AI coding agents (Claude Code, Cursor, Codex, omp, Antigravity) or long tasks run, then lets it sleep again the moment they finish. Open source, 100% offline, zero dependencies, macOS 13+ and Linux.
 
-## Overview
+Tools like `caffeinate` and Amphetamine rely on `IOPMAssertion`, which only blocks *idle* system sleep. When a MacBook lid closes without an external monitor, macOS forces sleep regardless of any `IOPMAssertion`. NonSleep instead manages `pmset -a disablesleep`, the one switch that survives a closed lid, and binds it to process-tracked, time-limited leases: when the agent turn ends, the process crashes, or the machine reboots, normal sleep is restored automatically. On Linux it uses systemd `logind` inhibitor locks and needs no root.
 
-Traditional tools like `caffeinate` or Amphetamine rely on `IOPMAssertion`, which only prevents idle system sleep. When a MacBook lid is closed without an external monitor, macOS enforces sleep regardless of `IOPMAssertion`.
+Key properties:
 
-NonSleep manages the system flag `pmset -a disablesleep 1`, which is the only switch that survives a closed lid. To prevent leaving the Mac permanently awake, NonSleep binds the flag to process-tracked, time-limited leases. When the agent turn or task completes, or if the process crashes, normal sleep is automatically restored. On Linux, NonSleep uses systemd `logind` inhibitor locks without requiring root.
+- Closed-lid operation with no external display and no power adapter required.
+- Agent-aware turn lifecycle: official hooks for Claude Code, Cursor, Codex, Antigravity; omp detected through its `"omp agent session"` power assertion; any MCP-capable agent through `nonsleep mcp`.
+- Fail-safe by design: every request is a lease tied to a PID, an expiry, and the current boot. A LaunchAgent reaper sweeps dead leases every 60 s.
+- Safety cut-outs: releases on battery below 20%, on serious/critical thermal state, and earlier still when the lid is closed on battery with no external display.
+- Minimal privilege: a sudoers rule allowing exactly `/usr/bin/pmset -a disablesleep 0` and `… 1`. No root daemon.
+- Air-gapped: no network code, no telemetry, no third-party packages.
+- English and Vietnamese interface (`config.language`: `auto`, `en`, `vi`).
 
-## Key Differentiators vs. Other Tools
+Install: `git clone https://github.com/Tran-Duc-Duy/nonsleep && cd nonsleep && scripts/install.sh`
 
-- Clamshell Mode Without External Display: Allows closed-lid operation without connecting a monitor or power adapter.
-- Agent-Aware Turn Lifecycle: Hooks into Claude Code, Cursor, Codex, and Antigravity, and reads omp power assertions. Automatically holds the Mac awake while prompts/tools run, and sleeps when turns end.
-- Hardware & Thermal Safety: Suspends sleep inhibition when battery drops below 20% or thermal state reaches serious/critical levels.
-- Privacy & Screen Lock: Automatically turns displays off on lid close (`pmset displaysleepnow`), locking the session immediately.
-- 100% Offline & Zero Dependencies: Contains no network code, no telemetry, and no third-party package dependencies.
-- Minimal Sudoers Scope: Requests administrator access once to grant `/usr/bin/pmset -a disablesleep 0` and `1` only. No background root daemon.
+Primary commands: `nonsleep status`, `nonsleep on [DURATION]`, `nonsleep off`, `nonsleep sleep`, `nonsleep run -- CMD`, `nonsleep wait TARGET…`, `nonsleep auto`, `nonsleep integrate [AGENT…]`, `nonsleep doctor`, `nonsleep history`, `nonsleep mcp`, `nonsleep setup`.
 
-## Supported AI Coding Agents
+## Docs
 
-- omp (oh-my-pi): Automatically detected via `"omp agent session"` power assertion.
-- Claude Code: Hook integration via `~/.claude/settings.json`.
-- Cursor: Hook integration via `~/.cursor/hooks.json`.
-- OpenAI Codex: Hook integration via `~/.codex/hooks.json`.
-- Antigravity: Hook integration via `~/.gemini/config/hooks.json`.
+- [README](https://github.com/Tran-Duc-Duy/nonsleep/blob/main/README.md): install, menu bar app, full CLI reference, config keys, agent integration, benchmarks.
+- [Agent & developer guide](https://github.com/Tran-Duc-Duy/nonsleep/blob/main/AGENTS.md): architecture, file layout, supported agents, trust invariants.
+- [Security policy](https://github.com/Tran-Duc-Duy/nonsleep/blob/main/SECURITY.md): threat model, sudoers scope, reporting process, what is in and out of scope.
+- [Changelog](https://github.com/Tran-Duc-Duy/nonsleep/blob/main/CHANGELOG.md): released versions and behaviour changes.
+- [Contributing](https://github.com/Tran-Duc-Duy/nonsleep/blob/main/CONTRIBUTING.md): development setup, what a new agent integration requires.
 
-One-click hook setup: `nonsleep integrate all`
+## Source
 
-## Common Use Cases & Recipes
+- [Engine](https://github.com/Tran-Duc-Duy/nonsleep/blob/main/Sources/NonSleepKit/NonSleep.swift): state machine reconciling the `disablesleep` flag against live leases.
+- [Leases](https://github.com/Tran-Duc-Duy/nonsleep/blob/main/Sources/NonSleepKit/Lease.swift): lease model and the cross-process on-disk store.
+- [Agent hooks](https://github.com/Tran-Duc-Duy/nonsleep/blob/main/Sources/NonSleepKit/Integrations.swift): hook install/remove and event-to-action mapping per agent.
+- [MCP server](https://github.com/Tran-Duc-Duy/nonsleep/blob/main/Sources/NonSleepKit/MCPServer.swift): stdio JSON-RPC server exposing `nonsleep_status`, `nonsleep_acquire_lease`, `nonsleep_release_lease`.
+- [Setup](https://github.com/Tran-Duc-Duy/nonsleep/blob/main/Sources/NonSleepKit/Setup.swift): sudoers rule staging, reaper LaunchAgent, CLI symlink.
+- [CLI](https://github.com/Tran-Duc-Duy/nonsleep/blob/main/Sources/nonsleep/main.swift): every subcommand.
 
-- Run an AI Agent and close lid: Run `nonsleep integrate all`. Start a prompt in Claude Code, Cursor, or Codex. Close the MacBook; it sleeps automatically when the turn finishes.
-- Run a CLI command with closed lid: `nonsleep run -- npm run build` (sleeps immediately when the command exits).
-- Listen to YouTube, podcasts, or music with lid closed: Run `nonsleep on 45m` or click **Custom…** in the menu bar and enter `45m` or `2h`. The Mac plays audio with the lid closed and goes to sleep when the timer expires.
-- Wait for a long download, render, or background PID: `nonsleep wait <PID>`.
+## Optional
 
-## CLI Reference
-
-- `nonsleep status`: Shows current lid-closed mode, active leases, agent activity, and battery/thermal state.
-- `nonsleep on [DURATION]`: Keeps Mac awake with lid closed (e.g. `45m`, `2h`, `90s`, or until turned off).
-- `nonsleep off`: Releases all leases and restores normal sleep immediately.
-- `nonsleep sleep`: Releases all leases and puts the Mac to sleep right now.
-- `nonsleep run [--] <CMD>`: Keeps Mac awake while `<CMD>` runs; exits with command's status.
-- `nonsleep wait <TARGET...>`: Keeps Mac awake while given PIDs or process names run.
-- `nonsleep auto`: Background agent watcher.
-- `nonsleep integrate [AGENT...]`: Installs or removes hooks for agents (`claude`, `cursor`, `antigravity`, `codex`, `all`).
-- `nonsleep setup`: Installs sudoers rule, LaunchAgent reaper, and CLI symlink.
-
-## Security & Verification
-
-- Check zero network activity: `lsof -p $(pgrep -f "NonSleep|nonsleep") -i` (returns empty).
-- Verify build provenance: `gh attestation verify NonSleep-*.zip --owner Tran-Duc-Duy`.
-- Inspect sudoers rule: `cat /etc/sudoers.d/nonsleep`.
-- Build from source: `git clone https://github.com/Tran-Duc-Duy/nonsleep.git && cd nonsleep && scripts/install.sh`.
+- [Releases](https://github.com/Tran-Duc-Duy/nonsleep/releases): signed builds with SLSA Level 3 provenance.
+- [Issues](https://github.com/Tran-Duc-Duy/nonsleep/issues): bug reports and feature requests.
+- [Install script](https://github.com/Tran-Duc-Duy/nonsleep/blob/main/scripts/install.sh): exactly what installation does.
+- [Uninstall script](https://github.com/Tran-Duc-Duy/nonsleep/blob/main/scripts/uninstall.sh): restores normal sleep and removes every installed artifact.

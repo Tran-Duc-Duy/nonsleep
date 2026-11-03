@@ -18,6 +18,9 @@ let usage = """
       auto                 keep awake while agents are working (see `nonsleep config`)
       reap                 sweep dead leases and re-apply state (run by the LaunchAgent)
       config               print the config path and effective config
+      doctor               run system diagnostics and verify permissions/hooks
+      history [--clear]    show recent sleep session history, duration and battery stats
+      mcp                  run stdio Model Context Protocol server for AI coding agents
       setup [--remove]     install (or remove) the sudoers rule, reaper LaunchAgent and ~/.local/bin link
       integrate [AGENT…] [--remove]
                            add (or remove) hooks for claude, cursor, antigravity, codex; no AGENT: show status
@@ -290,7 +293,8 @@ do {
             return seconds
         }
         let expiresAt = duration.map { Date().addingTimeInterval($0) }
-        let reason = expiresAt.map { "manual until \(clock($0))" } ?? "manual until `nonsleep off`"
+        let language = ((try? engine.config()) ?? .defaults).language
+        let reason = expiresAt.map { L10n.manualUntil(clock($0))(language) } ?? L10n.manualUntilOff(language)
         let status = try engine.hold(.detached(id: "manual", reason: reason, expiresAt: expiresAt))
         print("\(status.headline) — \(reason)")
     case "off":
@@ -325,6 +329,60 @@ do {
     case "keeper":
         Keeper.run(engine: engine)
     #endif
+    case "doctor":
+        let doctor = Doctor(store: engine.store, power: engine.power)
+        let results = doctor.diagnose()
+        print("NonSleep Diagnostic Report:")
+        var hasFailures = false
+        for check in results {
+            let symbol: String
+            switch check.level {
+            case .pass: symbol = "✓"
+            case .warning: symbol = "!"
+            case .failure:
+                symbol = "✗"
+                hasFailures = true
+            }
+            print("  \(symbol) \(check.title): \(check.detail)")
+            if let fix = check.fixRecommendation {
+                print("    ↳ Fix: \(fix)")
+            }
+        }
+        if hasFailures {
+            exit(1)
+        }
+    case "history":
+        let config = (try? engine.config()) ?? .defaults
+        let history = HistoryStore.standard(store: engine.store, config: config)
+        if arguments.contains("--clear") {
+            try history.clear()
+            print("Session history cleared.")
+        } else {
+            let records = history.load()
+            if records.isEmpty {
+                print(config.historyMaxEntries == 0
+                    ? "Session history is off (historyMaxEntries: 0)."
+                    : "No session history recorded yet.")
+            } else {
+                print("Recent sessions (\(records.count) of max \(config.historyMaxEntries)):")
+                for record in records {
+                    let started = record.startedAt.formatted(date: .abbreviated, time: .shortened)
+                    let battery: String
+                    if let start = record.startBatteryPercent, let end = record.endBatteryPercent {
+                        battery = "\(start)% → \(end)%"
+                    } else {
+                        battery = "AC"
+                    }
+                    print("  \(started)  \(Duration.format(record.duration))  \(record.reason)")
+                    print("    battery \(battery) · peak thermal \(record.peakThermalState)")
+                }
+            }
+            let kept = config.historyRetentionDays == 0 ? "no age limit" : "\(config.historyRetentionDays) days"
+            print("\(history.fileURL.path) — \(history.fileSize) B, keeps \(kept), caps at \(HistoryStore.maxFileBytes / 1024) KiB")
+        }
+    case "mcp":
+        let server = MCPServer(engine: engine)
+        try server.run()
     case "integrate":
         try integrate(arguments)
     case "hook":
