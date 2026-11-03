@@ -224,7 +224,7 @@ export function MacbookMockup({ lang }: { lang: Language }) {
                   <p className="text-indigo-400">&gt; Starting turn across 24 files...</p>
                   <p className="text-zinc-300">[1/20] Analyzing schema.prisma</p>
                   <p className="text-zinc-400">[2/20] Updating JWT verification flow...</p>
-                  <p className="text-amber-400 animate-pulse">Running step 3 of 20 (Lid open)...</p>
+                  <p className="text-amber-400 animate-pulse-legible">Running step 3 of 20 (Lid open)...</p>
                 </div>
               )}
 
@@ -236,7 +236,7 @@ export function MacbookMockup({ lang }: { lang: Language }) {
                   <p className="text-zinc-400">[NonSleep] Displays powered off. Session locked.</p>
                   <p className="text-zinc-300">[12/20] Writing unit tests for token expiry...</p>
                   <p className="text-emerald-400">[Test: OK] 18 tests passing in background</p>
-                  <p className="text-indigo-300 animate-pulse">
+                  <p className="text-indigo-300 animate-pulse-legible">
                     Step 19/20 compiling with lid shut...
                   </p>
                 </div>

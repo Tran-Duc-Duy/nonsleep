@@ -40,6 +40,22 @@ body {
   }
 }
 
+/* Tailwind's `animate-pulse` bottoms out at opacity .5. Measured against the terminal
+   background (#0c0d10) that takes indigo-300 from 9.56:1 down to 3.15:1 and amber-400 from
+   11.64:1 to 3.61:1 — below AA for half of every cycle, so the text is briefly unreadable
+   rather than merely dim. Bottoming at .75 keeps both above 4.5:1 (5.75:1 and 6.80:1) and
+   still reads as "in progress". Use this for *text*; `animate-pulse` is fine on dots and icons,
+   where the contrast rule does not apply. */
+@keyframes pulse-legible {
+  50% {
+    opacity: 0.75;
+  }
+}
+
+.animate-pulse-legible {
+  animation: pulse-legible 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
