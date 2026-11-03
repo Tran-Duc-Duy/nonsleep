@@ -29,3 +29,12 @@ dist/
 *.cer
 *.mobileprovision
 *.provisionprofile
+
+# Web (Next.js / Node / Bun)
+web/node_modules/
+web/.next/
+web/out/
+web/dist/
+web/.turbo/
+web/*.tsbuildinfo
+.cursor/
