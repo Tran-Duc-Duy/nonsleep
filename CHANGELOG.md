@@ -6,6 +6,24 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-11-04
+
+### Added
+
+- `nonsleep mcp`: a Model Context Protocol server over stdio, so any MCP-capable agent (Claude Desktop, Cursor, Windsurf, Goose, …) can hold and release leases itself through `nonsleep_status`, `nonsleep_acquire_lease`, and `nonsleep_release_lease`. Stdio only — no network listener, no new dependency.
+- `nonsleep doctor`: a read-only check of the sudoers rule, the reaper LaunchAgent, the screen-lock delay, installed agent hooks, and whether another tool owns the `disablesleep` flag.
+- `nonsleep history`: recent sessions with duration, battery delta, and the hottest thermal state reached. Bounded by entry count, age, an 80-character ceiling on lease reasons, and a 64 KiB file limit above which the file is discarded rather than parsed; sessions under 5 s are not recorded. About 250 B per session, 12 KB at the cap.
+- English and Vietnamese interface, selectable in the menu bar app or through `language` in `config.json` (`auto`, `en`, `vi`). An unrecognised value falls back to `auto` without invalidating the rest of the config.
+- An optional chime when the last lease drops, off by default (`soundEnabled`), with an optional custom sound file (`soundPath`).
+- Toggles in the management window for the chime and for backpack protection, which previously existed only in `config.json`.
+- A landing page at https://nonsleep.vercel.app.
+
+### Changed
+
+- **Backpack protection is on by default.** With the lid closed, on battery, and no external display, NonSleep now releases at a `fair` thermal state instead of waiting for `serious`. A closed Mac in a bag has no airflow, so the earlier cut-out is deliberate — but it does mean such machines sleep sooner than they did in 0.2.0. Set `"backpackProtection": false` to keep the old behaviour.
+- Status lines and lease reasons printed by the CLI follow `language`. On a system set to Vietnamese, `auto` now produces Vietnamese output where 0.2.0 always produced English; set `"language": "en"` to pin it.
+- The menu bar window no longer has a separate *Custom…* button: the *Keep awake* menu already contained *Custom duration…*, and two entry points for one action is one too many.
+
 ## [0.2.0] - 2026-11-02
 
 ### Added
@@ -59,7 +77,8 @@ First public release.
   held by an on-demand keeper process (no root), omp detection via login1 inhibitors, the same
   hooks, lock on lid close via `loginctl`, and `install.sh` with desktop autostart for `nonsleep auto`.
 
-[Unreleased]: ../../compare/v0.2.0...HEAD
+[Unreleased]: ../../compare/v0.3.0...HEAD
+[0.3.0]: ../../compare/v0.2.0...v0.3.0
 [0.2.0]: ../../compare/v0.1.1...v0.2.0
 [0.1.1]: ../../compare/v0.1.0...v0.1.1
 [0.1.0]: ../../releases/tag/v0.1.0

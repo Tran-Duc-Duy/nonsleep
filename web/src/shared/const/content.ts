@@ -30,7 +30,7 @@ export const DICTIONARY = {
       star: "Star on GitHub",
     },
     hero: {
-      pill: "v0.2.0: OpenAI Codex CLI & Custom Sleep Timer",
+      pill: "v0.3.0: MCP server, diagnostics & session history",
       titleLine1: "Send the prompt. Shut the lid.",
       titleLine2: "Walk away.",
       subtitle:
@@ -171,7 +171,7 @@ export const DICTIONARY = {
       star: "Tặng Star",
     },
     hero: {
-      pill: "Bản v0.2.0: Hỗ trợ OpenAI Codex & Hẹn giờ ngủ tùy ý",
+      pill: "Bản v0.3.0: MCP server, chẩn đoán & lịch sử phiên",
       titleLine1: "Gõ prompt. Gập máy lại.",
       titleLine2: "Đi làm việc khác.",
       subtitle:

@@ -3,6 +3,7 @@
 import * as React from "react";
 import { Moon, Lock, ShieldCheck, Activity, Terminal, Battery, Wifi, Sparkles, Laptop } from "lucide-react";
 import { type Language } from "../../shared/const/content";
+import { SITE_CONFIG } from "../../shared/const/site-config";
 import { LottiePlayer } from "../../shared/ui/lottie-player";
 import { Button } from "../../shared/ui/button";
 import pulseGlow from "../../shared/assets/lottie/pulse-glow.json";
@@ -259,7 +260,7 @@ export function MacbookMockup({ lang }: { lang: Language }) {
             {/* Terminal Footer */}
             <div className="pt-2 border-t border-zinc-800/60 text-[11px] text-zinc-400 flex items-center justify-between">
               <span>Status: {step === 2 ? "Clamshell Task Active" : step === 3 ? "Process Exited (0)" : "Interactive"}</span>
-              <span className="text-zinc-400">NonSleep Engine v0.2.0</span>
+              <span className="text-zinc-400">NonSleep Engine {SITE_CONFIG.latestVersion}</span>
             </div>
           </div>
         </div>

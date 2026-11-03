@@ -1,5 +1,6 @@
 import { ShieldCheck, WifiOff, FileCheck, Lock, Terminal } from "lucide-react";
 import { type Language, DICTIONARY } from "../../shared/const/content";
+import { SITE_CONFIG } from "../../shared/const/site-config";
 import { Container } from "../../shared/ui/container";
 import { SectionHeading } from "../../shared/ui/section-heading";
 import { Card } from "../../shared/ui/card";
@@ -81,7 +82,7 @@ export function SecurityTrust({ lang }: { lang: Language }) {
             </span>
           </div>
           <div className="rounded-xl bg-white border border-zinc-200 px-3.5 py-2.5 text-zinc-700 overflow-x-auto shadow-inner">
-            <code>gh attestation verify NonSleep-0.2.0-macOS.zip --owner Tran-Duc-Duy</code>
+            <code>gh attestation verify {SITE_CONFIG.macArtifactName} --owner Tran-Duc-Duy</code>
           </div>
         </div>
       </Container>
