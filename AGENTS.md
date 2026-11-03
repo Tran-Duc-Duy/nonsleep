@@ -60,7 +60,10 @@ Hooks are strictly passive:
 - They never approve, reject, or modify agent actions.
 - Original hook files are backed up to `.nonsleep-backup`.
 
-### C. Process Monitoring & Custom Timers
+### C. Model Context Protocol (`nonsleep mcp`)
+Any agent supporting standard MCP (Claude Desktop, Cursor, Windsurf, OpenCode, Goose) can run `nonsleep mcp` over stdio to programmatically acquire and release leases.
+
+### D. Process Monitoring & Custom Timers
 - Users can list process names in config (e.g. `codex`, `rsync`, `brew`).
 - Users can specify custom durations (e.g. `45m`, `2h`, `1h30m`) in GUI or CLI.
 
@@ -78,6 +81,9 @@ nonsleep sleep                # Release all leases and put the Mac to sleep righ
 nonsleep auto                 # Run foreground watcher for agent activity
 nonsleep integrate [agent...] # Install hooks for claude, cursor, antigravity, codex, or all
 nonsleep setup                # Install sudoers rule, reaper LaunchAgent, and CLI link
+nonsleep doctor               # Verify sudoers, reaper, screen lock, hooks, and conflicting apps
+nonsleep history [--clear]    # View recent sleep sessions with battery delta and peak thermal
+nonsleep mcp                  # Run Model Context Protocol server over stdio for AI coding agents
 ```
 
 ---
@@ -94,3 +100,5 @@ nonsleep setup                # Install sudoers rule, reaper LaunchAgent, and CL
 4. **TOCTOU-Proof Installation**: The draft sudoers rule is staged as `0440 root:wheel` in `/etc/sudoers.d/` before `visudo -c` verification, preventing local race conditions.
 5. **Safety Cut-outs**: Sleep inhibition is automatically suspended if battery level drops below 20% or thermal state reaches serious/critical levels.
 6. **Screen Lock on Lid Close**: Displays are turned off on lid close (`pmset displaysleepnow`), ensuring the macOS session is locked immediately.
+7. **Bounded On-Disk State**: `history.json` is capped four ways — entry count (`historyMaxEntries`, 50), age (`historyRetentionDays`, 30), an 80-character ceiling on lease reasons, and a 64 KiB file limit above which the file is deleted rather than parsed. Sessions under 5 s are not recorded. Steady-state footprint is ~12 KB.
+8. **Localization**: UI text lives in `NonSleepKit/Localization.swift` as a compiled-in `L10n` enum (English + Vietnamese), not `.lproj` bundles — `Package.swift` declares no resources and `build-app.sh` assembles the bundle by hand. Keyed cases mean a missing translation is a compile error, and the CLI and app share one table. Language comes from `config.language` (`auto`/`en`/`vi`).

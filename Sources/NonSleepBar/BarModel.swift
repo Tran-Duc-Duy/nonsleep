@@ -78,7 +78,7 @@ final class BarModel: ObservableObject {
 
     // MARK: Presentation
 
-    var headline: String { status?.headline ?? "Starting…" }
+    var headline: String { status?.headline ?? L10n.statusStarting(config.language) }
 
     var isAwake: Bool { status?.power.sleepDisabled ?? false }
 
@@ -91,10 +91,14 @@ final class BarModel: ObservableObject {
 
     var facts: String? {
         guard let power = status?.power else { return nil }
-        var facts = [power.lidClosed ? "Lid closed" : "Lid open", power.onBattery ? "Battery" : "AC"]
+        let language = config.language
+        var facts = [
+            power.lidClosed ? L10n.lidClosed(language) : L10n.lidOpen(language),
+            power.onBattery ? L10n.onBattery(language) : L10n.onAC(language),
+        ]
         if let percent = power.batteryPercent { facts.append("\(percent)%") }
-        if power.externalDisplay { facts.append("External display") }
-        if power.thermal != .nominal { facts.append("Thermal \(power.thermal.rawValue)") }
+        if power.externalDisplay { facts.append(L10n.externalDisplay(language)) }
+        if power.thermal != .nominal { facts.append(L10n.thermalState(power.thermal.rawValue)(language)) }
         return facts.joined(separator: " · ")
     }
 
@@ -104,8 +108,9 @@ final class BarModel: ObservableObject {
 
     func keepAwake(for seconds: TimeInterval?) {
         let expiresAt = seconds.map { Date().addingTimeInterval($0) }
-        let reason = expiresAt.map { "Manual until \($0.formatted(date: .omitted, time: .shortened))" }
-            ?? "Manual until turned off"
+        let reason = expiresAt
+            .map { L10n.manualUntil($0.formatted(date: .omitted, time: .shortened))(config.language) }
+            ?? L10n.manualUntilOff(config.language)
         perform { try engine.hold(.owned(id: Self.manualID, reason: reason, expiresAt: expiresAt)) }
     }
 

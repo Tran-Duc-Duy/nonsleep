@@ -9,21 +9,33 @@ public struct Status: Sendable {
     /// The flag is set but by something other than NonSleep (e.g. Amphetamine, a manual `pmset`).
     public var setByOtherTool: Bool
 
+    /// Language is passed in rather than read from disk: `Status` is produced inside the engine
+    /// lock, and re-reading the config here would widen that lock for a presentation detail.
+    public var language: Language = .auto
+
     public var headline: String {
-        if let blockedBy { return "Paused: \(blockedBy)" }
-        if setByOtherTool { return "Sleep disabled by another tool" }
-        return power.sleepDisabled ? "Stays awake with the lid closed" : "Normal sleep"
+        if let blockedBy { return L10n.statusPaused(blockedBy)(language) }
+        if setByOtherTool { return L10n.statusOtherTool(language) }
+        return power.sleepDisabled ? L10n.statusAwake(language) : L10n.statusNormal(language)
     }
 }
 
 public enum Policy {
     /// Safety cut-outs that override every lease.
-    public static func blocker(_ power: PowerSnapshot, minBatteryPercent: Int) -> String? {
+    public static func blocker(
+        _ power: PowerSnapshot,
+        minBatteryPercent: Int,
+        backpackProtection: Bool = true,
+        language: Language = .auto
+    ) -> String? {
         if power.onBattery, let percent = power.batteryPercent, percent < minBatteryPercent {
-            return "battery \(percent)% < \(minBatteryPercent)%"
+            return L10n.blockerBattery(percent, minBatteryPercent)(language)
         }
         if power.thermal >= .serious {
-            return "thermal state \(power.thermal.rawValue)"
+            return L10n.blockerThermal(power.thermal.rawValue)(language)
+        }
+        if backpackProtection, power.lidClosed, power.onBattery, !power.externalDisplay, power.thermal >= .fair {
+            return L10n.blockerBackpack(power.thermal.rawValue)(language)
         }
         return nil
     }
@@ -108,8 +120,15 @@ public struct NonSleep: Sendable {
         }
 
         var power = power.snapshot()
-        let blockedBy = live.isEmpty ? nil : Policy.blocker(power, minBatteryPercent: config.minBatteryPercent)
+        let blockedBy = live.isEmpty ? nil : Policy.blocker(
+            power,
+            minBatteryPercent: config.minBatteryPercent,
+            backpackProtection: config.backpackProtection,
+            language: config.language
+        )
         let wanted = !live.isEmpty && blockedBy == nil
+
+        let history = HistoryStore.standard(store: store, config: config)
 
         if wanted, !power.sleepDisabled {
             // Claim before acting: a crash right after pmset must still leave the flag ours to clear.
@@ -121,11 +140,21 @@ public struct NonSleep: Sendable {
                 throw error
             }
             power.sleepDisabled = true
-        } else if !wanted, store.ownsFlag {
+            history.openSession(
+                at: now, reason: live.map(\.reason).joined(separator: ", "),
+                battery: power.batteryPercent, thermal: power.thermal
+            )
+        } else if wanted {
+            history.observe(thermal: power.thermal)
+        } else if store.ownsFlag {
             // Trust the marker over the registry read: clearing is idempotent, a stuck flag is not.
             try self.power.setSleepDisabled(false)
             store.ownsFlag = false
             power.sleepDisabled = false
+            history.closeSession(at: now, battery: power.batteryPercent, thermal: power.thermal)
+            if config.soundEnabled {
+                SoundPlayer.play(soundPath: config.soundPath)
+            }
             if config.sleepWhenDone, power.lidClosed, !power.externalDisplay {
                 self.power.sleepNow()
             }
@@ -135,7 +164,8 @@ public struct NonSleep: Sendable {
             power: power,
             leases: live,
             blockedBy: blockedBy,
-            setByOtherTool: power.sleepDisabled && !store.ownsFlag
+            setByOtherTool: power.sleepDisabled && !store.ownsFlag,
+            language: config.language
         )
     }
 }

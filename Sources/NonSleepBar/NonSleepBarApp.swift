@@ -53,36 +53,37 @@ struct BarMenu: View {
     let openWindow: () -> Void
 
     var body: some View {
+        let language = model.config.language
         Text(model.headline)
         if let facts = model.facts { Text(facts) }
         ForEach(model.status?.leases ?? []) { lease in
             Text("• " + lease.reason)
         }
         if !model.agents.isEmpty {
-            Text("Agents: " + model.agents.joined(separator: ", "))
+            Text(L10n.agentsLabel(language) + ": " + model.agents.joined(separator: ", "))
         }
         if let error = model.error {
             Text("⚠︎ " + error)
         }
 
         Divider()
-        Toggle("Auto: while agents are working", isOn: $model.autoMode)
-        Menu("Keep awake") {
-            Button("For 1 hour") { model.keepAwake(for: 3600) }
-            Button("For 3 hours") { model.keepAwake(for: 3 * 3600) }
-            Button("For 8 hours") { model.keepAwake(for: 8 * 3600) }
-            Button("Until turned off") { model.keepAwake(for: nil) }
+        Toggle(L10n.autoWhileAgentsWork(language), isOn: $model.autoMode)
+        Menu(L10n.keepAwake(language)) {
+            Button(L10n.forOneHour(language)) { model.keepAwake(for: 3600) }
+            Button(L10n.forThreeHours(language)) { model.keepAwake(for: 3 * 3600) }
+            Button(L10n.forEightHours(language)) { model.keepAwake(for: 8 * 3600) }
+            Button(L10n.untilTurnedOff(language)) { model.keepAwake(for: nil) }
             Divider()
-            Button("Custom duration…", action: openWindow)
+            Button(L10n.customDuration(language), action: openWindow)
         }
-        Button("Turn off") { model.turnOff() }
+        Button(L10n.turnOff(language)) { model.turnOff() }
             .disabled(model.status?.leases.isEmpty ?? true)
-        Button("Sleep now") { model.sleepNow() }
+        Button(L10n.sleepNow(language)) { model.sleepNow() }
 
         Divider()
-        Button("Open NonSleep…", action: openWindow)
+        Button(L10n.openNonSleep(language), action: openWindow)
             .keyboardShortcut(",")
-        Button("Quit NonSleep") { model.quit() }
+        Button(L10n.quitNonSleep(language)) { model.quit() }
             .keyboardShortcut("q")
     }
 }
