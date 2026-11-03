@@ -190,10 +190,15 @@ public final class MCPServer: Sendable {
         send(payload)
     }
 
+    /// One line per message, written straight to fd 1.
+    ///
+    /// Not `print` + `fflush(stdout)`: on Glibc `stdout` is a mutable global, which Swift 6
+    /// rejects as shared mutable state (Darwin imports it differently, so macOS never flagged
+    /// it). `FileHandle.write` is an unbuffered `write(2)`, so the flush the client needs after
+    /// every response is inherent rather than bolted on.
     private func send(_ object: [String: Any]) {
-        guard let data = try? JSONSerialization.data(withJSONObject: object),
-              let string = String(data: data, encoding: .utf8) else { return }
-        print(string)
-        fflush(stdout)
+        guard var data = try? JSONSerialization.data(withJSONObject: object) else { return }
+        data.append(0x0A)  // JSON-RPC over stdio is newline-delimited.
+        FileHandle.standardOutput.write(data)
     }
 }
