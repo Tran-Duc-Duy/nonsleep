@@ -262,8 +262,8 @@ Built with pure Swift, AppKit, and SwiftUI — no Electron, no Node.js, and zero
 
 | Metric | NonSleep Measurement | Real-World Impact |
 |---|---|---|
-| **App Bundle Size** | **2.5 MB** | Universal binary (`arm64` + `x86_64`) + assets |
-| **CLI Binary Size** | **573 KB** | Standalone native binary (`nonsleep`), including the MCP server |
+| **App Bundle Size** | **4.5 MB** | Universal binary (`arm64` + `x86_64`) + icon assets |
+| **CLI Binary Size** | **601 KB** | Standalone native binary (`nonsleep`), including the MCP server and both languages |
 | **Idle CPU Usage** | **0.0% – 0.1%** | Pure IOKit event-driven callbacks; zero CPU wakeups |
 | **CLI Execution Speed** | **~0.03 seconds** | Subcommands execute in ~30 ms, then immediately exit |
 | **Memory (RAM)** | **~3.9 MB** (CLI) / **~25 MB** (App) | Native lightweight footprint vs 300–800 MB for Electron apps |
