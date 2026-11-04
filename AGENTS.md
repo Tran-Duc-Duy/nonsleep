@@ -90,7 +90,7 @@ nonsleep mcp                  # Run Model Context Protocol server over stdio for
 
 ## 5. Security & Trust Invariants
 
-1. **Air-gapped (Zero Network)**: The codebase contains zero network imports (`URLSession`, `Network`, sockets). It never connects to the internet or sends telemetry.
+1. **No telemetry, no background network**: Nothing is sent on its own — no analytics, no crash reports, no launch check. `NonSleepKit`, the CLI, the MCP server and the reaper contain zero network imports (`URLSession`, `Network`, sockets); `grep -rn "URLSession\|import Network\|socket(" Sources/NonSleepKit Sources/nonsleep` must stay empty. The sole network call in the project is the user-initiated *Check for updates* button (`Sources/NonSleepBar/UpdateCheck.swift`), which reads the latest release tag from the GitHub API on click and downloads nothing; its parsing and version ordering live in `NonSleepKit/ReleaseFeed.swift`.
 2. **Zero Dependencies**: 0 npm packages, 0 Swift Package Manager remote dependencies. Links only standard library and Apple system frameworks (`AppKit`, `SwiftUI`, `IOKit`, `CoreGraphics`).
 3. **Restricted Sudoers Scope**: Allows exclusively:
    ```

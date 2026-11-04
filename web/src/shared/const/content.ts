@@ -39,7 +39,7 @@ export const DICTIONARY = {
       downloadSub: "Universal binary for M1–M4 Apple Silicon & Intel · Free & Open Source",
       githubCta: "View on GitHub",
       quickCopy: "One-line installation:",
-      badgeOffline: "100% Offline (Zero Network)",
+      badgeOffline: "No Telemetry (No Background Network)",
       badgeNative: "Native Swift (2.5 MB)",
       badgeSafe: "No Root Daemon",
       badgeLock: "Locks Screen on Close",
@@ -150,8 +150,8 @@ export const DICTIONARY = {
     },
     securityHeading: {
       badge: "Audit-Ready",
-      title: "100% Offline. We Don't Want Your Code.",
-      subtitle: "Zero network code, zero third-party dependencies, and zero telemetry. Audited by security engineers.",
+      title: "No Telemetry. We Don't Want Your Code.",
+      subtitle: "Nothing is sent on its own: no analytics, no crash reports, no launch check. Zero third-party dependencies, and the only request is the update button you press.",
     },
     faqHeading: {
       badge: "Clear Answers",
@@ -180,7 +180,7 @@ export const DICTIONARY = {
       downloadSub: "Bản universal mượt mà cho M1–M4 Apple Silicon & Intel · Mã nguồn mở & Miễn phí",
       githubCta: "Xem trên GitHub",
       quickCopy: "Cài đặt nhanh bằng 1 dòng lệnh:",
-      badgeOffline: "100% Offline (Không mạng)",
+      badgeOffline: "Không telemetry (không chạy nền ra mạng)",
       badgeNative: "Native Swift (2.5 MB)",
       badgeSafe: "Không chạy Root Daemon",
       badgeLock: "Gập máy tự khóa màn hình",
@@ -291,8 +291,8 @@ export const DICTIONARY = {
     },
     securityHeading: {
       badge: "Minh Bạch 100%",
-      title: "100% Offline. Tụi Mình Không Cần Code Của Bạn.",
-      subtitle: "Không có code mạng, không dùng thư viện ngoài, không telemetry. Đã được audit bảo mật kỹ lưỡng.",
+      title: "Không Telemetry. Tụi Mình Không Cần Code Của Bạn.",
+      subtitle: "Không tự gửi bất cứ thứ gì: không analytics, không crash report, không kiểm tra lúc khởi động. Không dùng thư viện ngoài, và request duy nhất là nút kiểm tra bản mới do bạn bấm.",
     },
     faqHeading: {
       badge: "Giải Đáp Thắc Mắc",

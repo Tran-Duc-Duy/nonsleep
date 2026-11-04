@@ -64,13 +64,13 @@ export const COMPARISON_DATA: readonly ComparisonRow[] = [
     note: "NonSleep uses a tightly scoped sudoers rule for pmset only. No root daemon.",
   },
   {
-    capability: "100% Offline (Zero Telemetry)",
+    capability: "Zero Telemetry (No Background Network)",
     nonSleep: true,
     amphetamine: false,
     caffeinate: true,
     agentCaffeine: "Closed-source",
     amped: true,
-    note: "NonSleep contains 0 network code, verified with lsof -i (completely empty).",
+    note: "NonSleep sends nothing on its own; the only request is the update button you press.",
   },
   {
     capability: "Open Source & Verifiable (SLSA)",
