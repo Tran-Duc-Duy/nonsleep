@@ -6,17 +6,6 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
-### Added
-
-- A configurable heat cut-out with bounded auto-resume. `thermalLimit` (default `serious`) and `backpackThermalLimit` (default `fair`, applied while the lid is closed on battery with no external display) decide when lid-closed mode stops; a closed lid loses the keyboard deck as a heat path, so machines that run hot can stop at `fair` or `nominal`. After the Mac spends `thermalCooldownMinutes` back under the limit, NonSleep resumes on its own up to `thermalRetryLimit` times (default 3) per run. A resumed run that overheats again within `thermalMinRunMinutes` (default 5) ends the retries immediately rather than cycling hot-cold-hot. The budget resets once no lease is live. All five knobs are in `config.json` and in the management window; `nonsleep status` and the menu bar show the trip and resume counters while an episode is running.
-- A **Check for updates** button in the management window. It runs only on click — no launch check, no timer, no identifiers — reading the latest release tag from the GitHub API, comparing it with the running version, and linking to the release page. It downloads and installs nothing. Parsing and version ordering live in `NonSleepKit/ReleaseFeed.swift` (no network code), so the CLI, the engine, the MCP server and the reaper remain free of network imports; the one request lives in `NonSleepBar/UpdateCheck.swift`.
-- A Homebrew cask (`Casks/nonsleep.rb`): `brew install --cask Tran-Duc-Duy/tap/nonsleep`, updated with `brew upgrade --cask nonsleep`. Uninstalling runs `nonsleep setup --remove` first, so normal sleep, the sudoers rule, the reaper and the CLI link are all cleaned up. `scripts/update-cask.sh vX.Y.Z` repoints the cask at a release using the checksum from that release's `SHA256SUMS.txt`.
-- README notes on closed-lid heat and on phone hotspots dropping when the lid closes (macOS low-power Wi-Fi polling plus hinge-antenna attenuation; USB tethering is the fix).
-
-### Changed
-
-- The "100% offline / zero network" wording in the README, `SECURITY.md`, `AGENTS.md` and the landing page is now "no telemetry, no background network", stating the update button as the single, user-initiated exception. The engine, CLI, MCP server and reaper still contain no network code: `grep -rn "URLSession\|import Network\|socket(" Sources/NonSleepKit Sources/nonsleep` returns nothing.
-
 ## [0.3.0] - 2026-11-04
 
 ### Added
@@ -28,12 +17,17 @@ All notable changes to this project are documented here. The format follows
 - An optional chime when the last lease drops, off by default (`soundEnabled`), with an optional custom sound file (`soundPath`).
 - Toggles in the management window for the chime and for backpack protection, which previously existed only in `config.json`.
 - A landing page at https://nonsleep.vercel.app.
+- A configurable heat cut-out with bounded auto-resume. `thermalLimit` (default `serious`) and `backpackThermalLimit` (default `fair`, applied while the lid is closed on battery with no external display) decide when lid-closed mode stops; a closed lid loses the keyboard deck as a heat path, so machines that run hot can stop at `fair` or `nominal`. After the Mac spends `thermalCooldownMinutes` back under the limit, NonSleep resumes on its own up to `thermalRetryLimit` times (default 3) per run. A resumed run that overheats again within `thermalMinRunMinutes` (default 5) ends the retries immediately rather than cycling hot-cold-hot. The budget resets once no lease is live. All five knobs are in `config.json` and in the management window; `nonsleep status` and the menu bar show the trip and resume counters while an episode is running.
+- A **Check for updates** button in the management window. It runs only on click — no launch check, no timer, no identifiers — reading the latest release tag from the GitHub API, comparing it with the running version, and linking to the release page. It downloads and installs nothing. Parsing and version ordering live in `NonSleepKit/ReleaseFeed.swift` (no network code), so the CLI, the engine, the MCP server and the reaper remain free of network imports; the one request lives in `NonSleepBar/UpdateCheck.swift`.
+- A Homebrew cask (`Casks/nonsleep.rb`): `brew install --cask Tran-Duc-Duy/tap/nonsleep`, updated with `brew upgrade --cask nonsleep`. Uninstalling runs `nonsleep setup --remove` first, so normal sleep, the sudoers rule, the reaper and the CLI link are all cleaned up. `scripts/update-cask.sh vX.Y.Z` repoints the cask at a release using the checksum from that release's `SHA256SUMS.txt`.
+- README notes on closed-lid heat and on phone hotspots dropping when the lid closes (macOS low-power Wi-Fi polling plus hinge-antenna attenuation; USB tethering is the fix).
 
 ### Changed
 
 - **Backpack protection is on by default.** With the lid closed, on battery, and no external display, NonSleep now releases at a `fair` thermal state instead of waiting for `serious`. A closed Mac in a bag has no airflow, so the earlier cut-out is deliberate — but it does mean such machines sleep sooner than they did in 0.2.0. Set `"backpackProtection": false` to keep the old behaviour.
 - Status lines and lease reasons printed by the CLI follow `language`. On a system set to Vietnamese, `auto` now produces Vietnamese output where 0.2.0 always produced English; set `"language": "en"` to pin it.
 - The menu bar window no longer has a separate *Custom…* button: the *Keep awake* menu already contained *Custom duration…*, and two entry points for one action is one too many.
+- The "100% offline / zero network" wording in the README, `SECURITY.md`, `AGENTS.md` and the landing page is now "no telemetry, no background network", stating the update button as the single, user-initiated exception. The engine, CLI, MCP server and reaper still contain no network code: `grep -rn "URLSession\|import Network\|socket(" Sources/NonSleepKit Sources/nonsleep` returns nothing.
 
 ## [0.2.0] - 2026-11-02
 
