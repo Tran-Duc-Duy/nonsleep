@@ -38,10 +38,12 @@ Keep your Mac working **with the lid closed** while your AI coding agents run �
 ### Homebrew (macOS 13+)
 
 ```sh
-brew install --cask Tran-Duc-Duy/tap/nonsleep
+brew tap Tran-Duc-Duy/tap
+brew trust Tran-Duc-Duy/tap          # Homebrew refuses casks from third-party taps until you do
+brew install --cask nonsleep
 ```
 
-Then click **Finish setup…** in the NonSleep window (or run `nonsleep setup`) once, to install the sudoers rule. Updating later is `brew upgrade --cask nonsleep`; `brew uninstall --cask nonsleep` restores normal sleep and removes the sudoers rule, the reaper and the CLI link before it deletes the app. The cask source lives in [`Casks/nonsleep.rb`](Casks/nonsleep.rb).
+Then click **Finish setup…** in the NonSleep window (or run `nonsleep setup`) once, to install the sudoers rule. Updating later is `brew upgrade --cask nonsleep`; `brew uninstall --cask nonsleep` restores normal sleep and removes the sudoers rule, the reaper and the CLI link before it deletes the app. The cask source lives in [`Casks/nonsleep.rb`](Casks/nonsleep.rb) and is mirrored to [Tran-Duc-Duy/homebrew-tap](https://github.com/Tran-Duc-Duy/homebrew-tap).
 
 ### Download (macOS 13+)
 
