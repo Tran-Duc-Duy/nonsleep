@@ -39,6 +39,29 @@ NonSleep automates this flag safely:
 
 ---
 
+## 2b. Git Workflow (read before writing any code)
+
+Branch from an up-to-date `main`, never from the branch that happens to be checked out:
+
+```sh
+git checkout main && git pull --ff-only origin main
+git checkout -b feat/<short-name>
+```
+
+- `release/*` branches exist only to cut a tag. `main` carries the **squashed** version of their
+  release commit under a different SHA, so branching from a release branch puts a duplicate
+  commit in the PR and GitHub reports a CHANGELOG conflict unrelated to the actual change.
+- Keep the branch current with `git fetch origin && git rebase origin/main`, not `git merge main`.
+- A duplicate commit already on the branch is dropped during the rebase, not merged by hand:
+  `git rebase --onto origin/main <last-unwanted-commit>` then `git push --force-with-lease`.
+- Every commit must build and pass `swift test` on its own; splitting a change across commits
+  means splitting its tests and `Localization.swift` cases with it.
+- Before pushing, run what CI runs: `swift build`, `swift test`, `npx tsc --noEmit` in `web/`
+  when web files changed, and `shellcheck scripts/*.sh` when scripts changed.
+- After a PR is squash-merged, delete the branch and start the next one from a fresh `main`.
+
+---
+
 ## 3. Supported AI Agents & Hook Integrations
 
 NonSleep monitors agents via three mechanisms:
