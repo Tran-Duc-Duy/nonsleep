@@ -4,7 +4,7 @@
 
 [![CI](https://github.com/Tran-Duc-Duy/nonsleep/actions/workflows/ci.yml/badge.svg)](https://github.com/Tran-Duc-Duy/nonsleep/actions/workflows/ci.yml)
 [![Security Scan](https://github.com/Tran-Duc-Duy/nonsleep/actions/workflows/security.yml/badge.svg)](https://github.com/Tran-Duc-Duy/nonsleep/actions/workflows/security.yml)
-![Offline](https://img.shields.io/badge/Network-100%25%20Offline-2ea44f)
+![Offline](https://img.shields.io/badge/Telemetry-None%20%C2%B7%20No%20background%20network-2ea44f)
 ![Dependencies](https://img.shields.io/badge/Dependencies-0%20(Pure%20Swift)-2ea44f)
 
 Keep your Mac working **with the lid closed** while your AI coding agents run — and let it sleep again the moment they finish.
@@ -15,7 +15,7 @@ Keep your Mac working **with the lid closed** while your AI coding agents run �
 - **Menu bar app + CLI**, sharing one state: `nonsleep run claude`, `nonsleep on 3h`, `nonsleep wait 1234`.
 - **Fail-safe.** Every request is a *lease* tied to a process, an expiry, and the current boot. Crash, `kill -9`, or reboot → the lease dies → a LaunchAgent reaper (every 60 s) restores normal sleep on its next run.
 - **Safety cut-outs.** Suspended on battery below 20% and when macOS reports serious/critical thermal state. When the flag drops with the lid closed (and no external display), the Mac sleeps immediately.
-- **Minimal privilege.** A sudoers rule that allows exactly `pmset -a disablesleep 0` and `… 1`. No helper daemon running as root, no network access, no telemetry.
+- **Minimal privilege.** A sudoers rule that allows exactly `pmset -a disablesleep 0` and `… 1`. No helper daemon running as root, no telemetry, and no network traffic unless you press *Check for updates*.
 
 ### Why NonSleep?
 
@@ -35,6 +35,14 @@ Keep your Mac working **with the lid closed** while your AI coding agents run �
 
 ## Install
 
+### Homebrew (macOS 13+)
+
+```sh
+brew install --cask Tran-Duc-Duy/tap/nonsleep
+```
+
+Then click **Finish setup…** in the NonSleep window (or run `nonsleep setup`) once, to install the sudoers rule. Updating later is `brew upgrade --cask nonsleep`; `brew uninstall --cask nonsleep` restores normal sleep and removes the sudoers rule, the reaper and the CLI link before it deletes the app. The cask source lives in [`Casks/nonsleep.rb`](Casks/nonsleep.rb).
+
 ### Download (macOS 13+)
 
 1. Download `NonSleep-X.Y.Z-macOS.zip` from [Releases](../../releases/latest), unzip, and move
@@ -53,6 +61,16 @@ gh attestation verify NonSleep-*.zip --owner Tran-Duc-Duy
 # Or check SHA-256 checksum against SHA256SUMS.txt in the release
 shasum -a 256 NonSleep-*.zip
 ```
+
+### Updating
+
+NonSleep never checks for updates on its own: no launch check, no timer, no telemetry. The management window has a **Check for updates** button that reads the latest release tag from the GitHub API *only when you click it*, compares it with the running version, and links to the release page. It downloads and installs nothing.
+
+| Installed with | Update |
+| --- | --- |
+| Homebrew | `brew upgrade --cask nonsleep` |
+| Zip download | Download the new zip from [Releases](../../releases/latest) and replace the app |
+| From source | `git pull && scripts/install.sh` |
 
 ### From source
 
@@ -181,6 +199,11 @@ Each turn's lease belongs to the agent process that ran the hook (the first ance
   "soundEnabled": false,
   "soundPath": null,
   "backpackProtection": true,
+  "thermalLimit": "serious",
+  "backpackThermalLimit": "fair",
+  "thermalRetryLimit": 3,
+  "thermalCooldownMinutes": 3,
+  "thermalMinRunMinutes": 5,
   "historyMaxEntries": 50,
   "historyRetentionDays": 30,
   "language": "auto"
@@ -193,7 +216,9 @@ Each turn's lease belongs to the agent process that ran the hook (the first ance
 - `lockOnLidClose`: menu bar app only; see *Lock on lid close* above.
 - `hookTimeoutMinutes`: how long a hook-reported turn holds after the agent's last hook event.
 - `soundEnabled` / `soundPath`: chime when the last lease drops. `soundPath` takes any `.aiff`/`.wav`/`.mp3`; `null` uses the macOS system sound.
-- `backpackProtection`: with the lid closed on battery and no external display, release at `fair` thermal instead of waiting for `serious` — a closed Mac in a bag has no airflow.
+- `backpackProtection`: with the lid closed on battery and no external display, apply `backpackThermalLimit` instead of `thermalLimit` — a closed Mac in a bag has no airflow.
+- `thermalLimit` / `backpackThermalLimit`: `nominal`, `fair`, `serious`, or `critical`. Lid-closed mode stops at or above that state. Closing the lid removes the keyboard deck from the heat path, so a Mac that feels too hot in your bag should run at `fair` (or `nominal` for a hard stop on any heat at all).
+- `thermalRetryLimit` / `thermalCooldownMinutes` / `thermalMinRunMinutes`: after a heat stop, NonSleep waits `thermalCooldownMinutes` under the limit and resumes, up to `thermalRetryLimit` times per run. A resumed run that overheats again within `thermalMinRunMinutes` proves cooling isn't helping, so NonSleep stops retrying and says so in the status line. `thermalRetryLimit: 0` never resumes on its own. The budget resets when every lease is gone (`nonsleep off`, or the agent finishing).
 - `historyMaxEntries` / `historyRetentionDays`: bounds on `history.json`. `historyMaxEntries: 0` turns history off; `historyRetentionDays: 0` keeps entries until the count evicts them.
 - `language`: `auto` (follow the system), `en`, or `vi`. The menu bar app has a picker under *Settings*; the CLI uses it for status lines and lease reasons. An unrecognised code falls back to `auto` without invalidating the rest of the config.
 
@@ -210,6 +235,26 @@ Each turn's lease belongs to the agent process that ran the hook (the first ance
 | 64 KiB file ceiling | A file over the ceiling is deleted instead of parsed, so a corrupt or tampered file can't be loaded into memory. |
 
 At the defaults that is ~250 B per session and ~12 KB at the cap. `nonsleep history --clear` removes the file.
+
+### Heat with the lid closed
+
+A closed lid removes the keyboard deck from the cooling path, so the same workload that is comfortable with the lid open runs hotter once the Mac is shut. NonSleep does not add load, but it is what lets the load keep running, so it owns the cut-out:
+
+| Control | Default | What it does |
+| --- | --- | --- |
+| `thermalLimit` | `serious` | Lid-closed mode stops at or above this state. |
+| `backpackThermalLimit` | `fair` | Stricter ceiling while enclosed (lid closed, on battery, no external display). |
+| `sleepWhenDone` | `true` | On a heat stop with the lid closed, the Mac sleeps immediately — the fastest way to cool it. |
+| `thermalRetryLimit` | `3` | Auto-resumes granted after it cools back under the limit. |
+| `thermalMinRunMinutes` | `5` | A resumed run that overheats again this fast ends the retries for this run. |
+
+If the machine still gets hotter than you want: set `thermalLimit` to `fair`, raise `thermalMinRunMinutes`, and keep the Mac on a hard surface rather than a bag or a bed, where the aluminium bottom is the only remaining heat path. `nonsleep status` shows the trip and resume counters while an episode is running.
+
+### Personal hotspot drops when the lid closes
+
+A Wi-Fi router keeps transmitting whether or not your Mac is listening; a phone hotspot does not. With the lid closed, macOS puts the Wi-Fi chip into low-power polling and the hinge antenna loses several dB behind the closed display, so the phone sees no traffic and shuts the hotspot off to save its own battery. NonSleep cannot change either side of that — it holds no network state and makes no network calls at all.
+
+What works, in order: **USB tethering** over the charging cable (it enumerates as a wired interface, so neither end can idle it out), iPhone *Settings › Personal Hotspot › Maximize Compatibility* (2.4 GHz penetrates the closed lid better than 5 GHz), and keeping the phone plugged in while it shares. A Mac on router Wi-Fi is unaffected.
 
 ## How it works
 
@@ -231,6 +276,7 @@ Source map (`Sources/`):
 | --- | --- |
 | `NonSleepKit/NonSleep.swift` | reconcile engine, safety policy |
 | `NonSleepKit/Lease.swift` | lease lifetime, on-disk store, cross-process lock |
+| `NonSleepKit/ThermalGuard.swift` | heat ceilings, cooldown and auto-resume budget |
 | `NonSleepKit/Power.swift` | IOKit reads (flag, lid, battery, displays, thermal), `pmset` calls |
 | `NonSleepKit/Processes.swift` | libproc/sysctl process info, power assertions |
 | `NonSleepKit/Agents.swift` | agent activity matching, grace window |
@@ -246,7 +292,7 @@ Source map (`Sources/`):
 
 NonSleep is designed for maximum transparency and minimal privilege:
 
-- **100% Offline (Air-gapped)**: Contains zero network imports (`URLSession`, `Network`, sockets). Never sends telemetry, prompts, tokens, or system data anywhere. Verify with `lsof -p $(pgrep -f "NonSleep|nonsleep") -i` (returns nothing).
+- **No telemetry, no background network**: Nothing is ever sent on its own — no analytics, no crash reports, no launch check. The engine, the CLI, the MCP server and the reaper contain no network code at all (`grep -rn "URLSession\|import Network\|socket(" Sources/NonSleepKit Sources/nonsleep` returns nothing). The only request the project can make is the *Check for updates* button in the app window, which reads the latest release tag from the GitHub API on click and downloads nothing. Verify with `lsof -p "$(pgrep -f 'NonSleep|nonsleep' | tr '\n' ',')" -i`.
 - **Zero Third-Party Dependencies**: 0 npm packages, 0 Swift Package Manager remote dependencies. Links only standard library and Apple system frameworks (`AppKit`, `SwiftUI`, `IOKit`, `CoreGraphics`).
 - **Minimal Privilege (No Root Daemon)**: Does not run any background daemon as root. Setup requests administrator rights once to install a single-line sudoers rule strictly limited to `/usr/bin/pmset -a disablesleep 0` and `1`.
 - **TOCTOU-Proof Setup**: The sudoers file is staged into `/etc/sudoers.d/` as `0440 root:wheel` before `visudo -c` validation to prevent local race conditions.

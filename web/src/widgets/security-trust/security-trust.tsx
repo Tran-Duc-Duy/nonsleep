@@ -10,11 +10,11 @@ export function SecurityTrust({ lang }: { lang: Language }) {
 
   const securityPillars = [
     {
-      title: lang === "vi" ? "100% Offline (Không Kết Nối Mạng)" : "100% Offline (Air-Gapped)",
+      title: lang === "vi" ? "Không Telemetry, Không Chạy Nền Ra Mạng" : "No Telemetry, No Background Network",
       description:
         lang === "vi"
-          ? "Code không import URLSession hay bất kỳ socket mạng nào. Không thu thập telemetry, tracking, hay crash logs. Bạn có thể tự gõ `lsof -p $(pgrep NonSleepBar) -i` (kết quả trả về trống rỗng)."
-          : "Zero network imports (URLSession, Network, sockets). Zero telemetry, tracking, or crash analytics. Verify yourself via `lsof -p $(pgrep NonSleepBar) -i` (returns empty).",
+          ? "Engine, CLI, MCP server và reaper không import URLSession hay bất kỳ socket mạng nào. Không telemetry, tracking hay crash log. Request duy nhất là nút kiểm tra bản mới do bạn bấm; gõ `lsof -p $(pgrep NonSleepBar) -i` để tự kiểm chứng (trả về trống)."
+          : "The engine, CLI, MCP server and reaper have zero network imports (URLSession, Network, sockets). No telemetry, tracking, or crash analytics. The only request is the update check you press; verify with `lsof -p $(pgrep NonSleepBar) -i` (returns empty).",
       icon: WifiOff,
     },
     {

@@ -38,7 +38,7 @@ export const FAQS: readonly FaqItem[] = [
     id: "privacy-and-logs",
     question: "Does NonSleep collect telemetry or read my agent prompts?",
     answer:
-      "No. NonSleep contains zero network code (no URLSession, no sockets, no telemetry). It runs 100% offline, which you can verify with `lsof -p $(pgrep NonSleepBar) -i` (returns empty). Agent hooks only send lifecycle signals (`UserPromptSubmit`, `Stop`); NonSleep never reads prompt text, code, or tokens.",
+      "No. NonSleep sends nothing on its own: no telemetry, no analytics, no crash reports, no launch check. The engine, the CLI, the MCP server and the reaper contain zero network code, which you can verify with `lsof -p $(pgrep NonSleepBar) -i` (returns empty). The one request it can make is the *Check for updates* button in the app window, which reads the latest release tag from the GitHub API when you click it and downloads nothing. Agent hooks only send lifecycle signals (`UserPromptSubmit`, `Stop`); NonSleep never reads prompt text, code, or tokens.",
     category: "Security",
   },
   {

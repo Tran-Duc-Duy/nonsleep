@@ -46,6 +46,10 @@ final class BarModel: ObservableObject {
         }
     }
 
+    /// Result of the last manual update check; `nil` until the user clicks the button.
+    @Published private(set) var updateOutcome: UpdateCheck.Outcome?
+    @Published private(set) var checkingForUpdate = false
+
     private let engine = NonSleep()
     private var grace: Grace?
     private var timer: Timer?
@@ -99,6 +103,10 @@ final class BarModel: ObservableObject {
         if let percent = power.batteryPercent { facts.append("\(percent)%") }
         if power.externalDisplay { facts.append(L10n.externalDisplay(language)) }
         if power.thermal != .nominal { facts.append(L10n.thermalState(power.thermal.rawValue)(language)) }
+        let heat = status?.thermalGuard ?? .idle
+        if !heat.isIdle {
+            facts.append(L10n.thermalRetriesUsed(heat.resumes, config.thermalRetryLimit, heat.trips)(language))
+        }
         return facts.joined(separator: " · ")
     }
 
@@ -160,6 +168,18 @@ final class BarModel: ObservableObject {
             try? config.save(to: url)
         }
         NSWorkspace.shared.open(url)
+    }
+
+    /// User-initiated only: the single network request NonSleep can make, and only on this click.
+    func checkForUpdates() {
+        guard !checkingForUpdate else { return }
+        checkingForUpdate = true
+        updateOutcome = nil
+        Task {
+            let outcome = await UpdateCheck.run()
+            self.checkingForUpdate = false
+            self.updateOutcome = outcome
+        }
     }
 
     func refreshSetup() {

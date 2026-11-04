@@ -39,6 +39,29 @@ NonSleep automates this flag safely:
 
 ---
 
+## 2b. Git Workflow (read before writing any code)
+
+Branch from an up-to-date `main`, never from the branch that happens to be checked out:
+
+```sh
+git checkout main && git pull --ff-only origin main
+git checkout -b feat/<short-name>
+```
+
+- `release/*` branches exist only to cut a tag. `main` carries the **squashed** version of their
+  release commit under a different SHA, so branching from a release branch puts a duplicate
+  commit in the PR and GitHub reports a CHANGELOG conflict unrelated to the actual change.
+- Keep the branch current with `git fetch origin && git rebase origin/main`, not `git merge main`.
+- A duplicate commit already on the branch is dropped during the rebase, not merged by hand:
+  `git rebase --onto origin/main <last-unwanted-commit>` then `git push --force-with-lease`.
+- Every commit must build and pass `swift test` on its own; splitting a change across commits
+  means splitting its tests and `Localization.swift` cases with it.
+- Before pushing, run what CI runs: `swift build`, `swift test`, `npx tsc --noEmit` in `web/`
+  when web files changed, and `shellcheck scripts/*.sh` when scripts changed.
+- After a PR is squash-merged, delete the branch and start the next one from a fresh `main`.
+
+---
+
 ## 3. Supported AI Agents & Hook Integrations
 
 NonSleep monitors agents via three mechanisms:
@@ -90,7 +113,7 @@ nonsleep mcp                  # Run Model Context Protocol server over stdio for
 
 ## 5. Security & Trust Invariants
 
-1. **Air-gapped (Zero Network)**: The codebase contains zero network imports (`URLSession`, `Network`, sockets). It never connects to the internet or sends telemetry.
+1. **No telemetry, no background network**: Nothing is sent on its own — no analytics, no crash reports, no launch check. `NonSleepKit`, the CLI, the MCP server and the reaper contain zero network imports (`URLSession`, `Network`, sockets); `grep -rn "URLSession\|import Network\|socket(" Sources/NonSleepKit Sources/nonsleep` must stay empty. The sole network call in the project is the user-initiated *Check for updates* button (`Sources/NonSleepBar/UpdateCheck.swift`), which reads the latest release tag from the GitHub API on click and downloads nothing; its parsing and version ordering live in `NonSleepKit/ReleaseFeed.swift`.
 2. **Zero Dependencies**: 0 npm packages, 0 Swift Package Manager remote dependencies. Links only standard library and Apple system frameworks (`AppKit`, `SwiftUI`, `IOKit`, `CoreGraphics`).
 3. **Restricted Sudoers Scope**: Allows exclusively:
    ```

@@ -205,6 +205,42 @@ struct MainWindow: View {
         Toggle(L10n.settingBackpack(language), isOn: binding(\.backpackProtection))
         Text(L10n.settingBackpackHelp(language))
             .font(.caption).foregroundStyle(.secondary)
+        Picker(L10n.settingThermalLimit(language), selection: binding(\.thermalLimit)) {
+            ForEach(Thermal.allCases) { state in
+                Text(state.rawValue).tag(state)
+            }
+        }
+        Text(L10n.settingThermalLimitHelp(language))
+            .font(.caption).foregroundStyle(.secondary)
+        if model.config.backpackProtection {
+            Picker(L10n.settingBackpackThermalLimit(language), selection: binding(\.backpackThermalLimit)) {
+                ForEach(Thermal.allCases) { state in
+                    Text(state.rawValue).tag(state)
+                }
+            }
+        }
+        Stepper(
+            L10n.settingThermalRetries(model.config.thermalRetryLimit)(language),
+            value: binding(\.thermalRetryLimit), in: 0...10
+        )
+        Text(L10n.settingThermalRetriesHelp(language))
+            .font(.caption).foregroundStyle(.secondary)
+        Stepper(
+            L10n.settingThermalCooldown(
+                Duration.format(TimeInterval(model.config.thermalCooldownMinutes) * 60)
+            )(language),
+            value: binding(\.thermalCooldownMinutes), in: 0...60
+        )
+        Text(L10n.settingThermalCooldownHelp(language))
+            .font(.caption).foregroundStyle(.secondary)
+        Stepper(
+            L10n.settingThermalMinRun(
+                Duration.format(TimeInterval(model.config.thermalMinRunMinutes) * 60)
+            )(language),
+            value: binding(\.thermalMinRunMinutes), in: 0...60
+        )
+        Text(L10n.settingThermalMinRunHelp(language))
+            .font(.caption).foregroundStyle(.secondary)
         Stepper(
             L10n.settingMinBattery(model.config.minBatteryPercent)(language),
             value: binding(\.minBatteryPercent), in: 0...50, step: 5
@@ -251,6 +287,34 @@ struct MainWindow: View {
                 Button(L10n.finishSetup(language)) { model.finishSetup() }
                     .disabled(model.settingUp)
             }
+        }
+        VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                Text(L10n.versionCurrent(NonSleepVersion.current)(language))
+                if let outcome = model.updateOutcome {
+                    switch outcome {
+                    case .upToDate:
+                        Text("· " + L10n.versionUpToDate(language))
+                            .foregroundStyle(.secondary)
+                    case .available(let release):
+                        Text("· " + L10n.versionAvailable(release.version)(language))
+                            .foregroundStyle(.orange)
+                        Link(L10n.openReleasesPage(language), destination: release.page)
+                    case .failed(let detail):
+                        Text("· " + L10n.versionCheckFailed(detail)(language))
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                Spacer()
+                Button(
+                    model.checkingForUpdate
+                        ? L10n.checkingForUpdates(language)
+                        : L10n.checkForUpdates(language)
+                ) { model.checkForUpdates() }
+                    .disabled(model.checkingForUpdate)
+            }
+            Text(L10n.updateCheckHelp(language))
+                .font(.caption).foregroundStyle(.secondary)
         }
         HStack {
             Text(L10n.setupOfflineNote(language))

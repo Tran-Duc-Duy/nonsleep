@@ -87,6 +87,7 @@ public struct Store: Sendable {
 
     private var leaseDirectory: URL { directory.appendingPathComponent("leases", isDirectory: true) }
     private var ownerMarker: URL { directory.appendingPathComponent("owns-flag") }
+    private var thermalGuardMarker: URL { directory.appendingPathComponent("thermal-guard.json") }
 
     public func leases() -> [Lease] {
         let files = (try? FileManager.default.contentsOfDirectory(at: leaseDirectory, includingPropertiesForKeys: nil)) ?? []
@@ -114,6 +115,25 @@ public struct Store: Sendable {
             } else {
                 try? FileManager.default.removeItem(at: ownerMarker)
             }
+        }
+    }
+
+    /// Retry bookkeeping for the current overheat episode. Shared by every NonSleep process, so
+    /// the reaper cannot hand out a resume that the menu bar app already spent.
+    public var thermalGuard: ThermalGuard {
+        get {
+            guard let data = try? Data(contentsOf: thermalGuardMarker),
+                  let state = try? JSONDecoder().decode(ThermalGuard.self, from: data)
+            else { return .idle }
+            return state
+        }
+        nonmutating set {
+            guard !newValue.isIdle else {
+                try? FileManager.default.removeItem(at: thermalGuardMarker)
+                return
+            }
+            try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+            try? JSONEncoder().encode(newValue).write(to: thermalGuardMarker, options: .atomic)
         }
     }
 

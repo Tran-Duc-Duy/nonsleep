@@ -62,7 +62,7 @@ export default function OpengraphImage() {
         </div>
 
         <div style={{ display: "flex", gap: 14 }}>
-          {["No external display", "100% offline", "Zero dependencies", "macOS + Linux"].map((tag) => (
+          {["No external display", "No telemetry", "Zero dependencies", "macOS + Linux"].map((tag) => (
             <div
               key={tag}
               style={{

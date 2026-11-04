@@ -47,7 +47,7 @@ export function generateStructuredData() {
       "Sleep-when-done lifecycle management",
       "Automatic screen lock on lid close",
       "Hardware thermal and low battery cut-outs",
-      "100% offline with zero network code",
+      "No telemetry and no background network",
     ],
   };
 

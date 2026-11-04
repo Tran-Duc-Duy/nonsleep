@@ -39,6 +39,8 @@ public enum L10n: Sendable {
     case blockerBattery(Int, Int)
     case blockerThermal(String)
     case blockerBackpack(String)
+    case blockerCooling(String, Int, Int)
+    case blockerThermalLockout(Int)
     case manualUntil(String), manualUntilOff
 
     // Power facts
@@ -50,6 +52,9 @@ public enum L10n: Sendable {
     case customDuration, turnOff, sleepNow, setTimer, cancel, release
     case openNonSleep, quitNonSleep, autoWhileAgentsWork, agentsLabel
     case finishSetup, openConfigFile, securityPolicy
+    case checkForUpdates, checkingForUpdates, openReleasesPage
+    case versionCurrent(String), versionUpToDate, versionAvailable(String), versionCheckFailed(String)
+    case updateCheckHelp
 
     // Window sections
     case sectionKeepingAwake, sectionAgents, sectionIntegrations, sectionSettings, sectionSetup
@@ -68,6 +73,12 @@ public enum L10n: Sendable {
     case settingProcesses, settingProcessesPrompt, settingProcessesHelp
     case settingLaunchAtLogin, settingSound, settingSoundHelp
     case settingBackpack, settingBackpackHelp
+    case settingThermalLimit, settingThermalLimitHelp
+    case settingBackpackThermalLimit
+    case settingThermalRetries(Int), settingThermalRetriesHelp
+    case settingThermalCooldown(String), settingThermalCooldownHelp
+    case settingThermalMinRun(String), settingThermalMinRunHelp
+    case thermalRetriesUsed(Int, Int, Int)
     case settingLanguage
 
     // Setup checks
@@ -96,6 +107,10 @@ public enum L10n: Sendable {
         case .blockerBattery(let percent, let minimum): "battery \(percent)% < \(minimum)%"
         case .blockerThermal(let state): "thermal state \(state)"
         case .blockerBackpack(let state): "backpack protection: thermal state \(state) with closed lid on battery"
+        case .blockerCooling(let remaining, let attempt, let limit):
+            "cooling down, resume attempt \(attempt)/\(limit) in \(remaining)"
+        case .blockerThermalLockout(let trips):
+            "thermal lockout after \(trips) overheats — turn NonSleep off and on again once the Mac is cool"
         case .manualUntil(let time): "Manual until \(time)"
         case .manualUntilOff: "Manual until turned off"
 
@@ -124,6 +139,14 @@ public enum L10n: Sendable {
         case .finishSetup: "Finish setup…"
         case .openConfigFile: "Open config.json"
         case .securityPolicy: "Security Policy"
+        case .checkForUpdates: "Check for updates"
+        case .checkingForUpdates: "Checking…"
+        case .openReleasesPage: "Open Releases"
+        case .versionCurrent(let version): "Version \(version)"
+        case .versionUpToDate: "Up to date"
+        case .versionAvailable(let version): "Version \(version) is available"
+        case .versionCheckFailed(let detail): "Check failed: \(detail)"
+        case .updateCheckHelp: "The only network request NonSleep makes, and only when you click. Nothing is sent, nothing is downloaded, and nothing runs in the background. With Homebrew: brew upgrade --cask nonsleep."
 
         case .sectionKeepingAwake: "Keeping the Mac awake"
         case .sectionAgents: "Agents"
@@ -163,6 +186,17 @@ public enum L10n: Sendable {
         case .settingSoundHelp: "Chimes when the last task ends, so you know from across the room. Set soundPath in config.json for your own file."
         case .settingBackpack: "Backpack protection"
         case .settingBackpackHelp: "With the lid closed on battery and no external display, release earlier when the Mac heats up — a closed Mac in a bag has no airflow."
+        case .settingThermalLimit: "Stop at thermal state"
+        case .settingThermalLimitHelp: "Lid-closed mode is suspended at or above this state. A closed lid loses the keyboard deck as a heat path, so pick a lower state if the Mac gets uncomfortably hot."
+        case .settingBackpackThermalLimit: "…and in a backpack, stop at"
+        case .settingThermalRetries(let count): "Auto-resume up to \(count)×"
+        case .settingThermalRetriesHelp: "After cooling down, lid-closed mode resumes this many times per run. 0 never resumes on its own."
+        case .settingThermalCooldown(let duration): "Cool down for \(duration) before resuming"
+        case .settingThermalCooldownHelp: "How long the Mac must stay under the limit before an automatic resume."
+        case .settingThermalMinRun(let duration): "Give up if it overheats again within \(duration)"
+        case .settingThermalMinRunHelp: "A resumed run that heats up again this fast proves cooling is not helping, so NonSleep stops retrying."
+        case .thermalRetriesUsed(let used, let limit, let trips):
+            "Heat: \(trips) overheat(s), \(used)/\(limit) auto-resumes used"
         case .settingLanguage: "Language"
 
         case .setupSudoers: "Passwordless pmset rule"
@@ -171,7 +205,7 @@ public enum L10n: Sendable {
         case .setupScreenLock(let delay): "Screen lock delay: \(delay)"
         case .setupScreenLockDetail: "Locking on lid close needs System Settings › Lock Screen › Require password: Immediately"
         case .setupAdminPrompt: "One administrator password, once: lets NonSleep toggle `pmset disablesleep` and clean up after crashes."
-        case .setupOfflineNote: "NonSleep is 100% offline (zero network access, no telemetry, no root daemon). The sudoers rule allows only `pmset -a disablesleep 0|1`."
+        case .setupOfflineNote: "NonSleep runs offline: no telemetry, no root daemon, and the only request it can make is the update check above, when you click it. The sudoers rule allows only `pmset -a disablesleep 0|1`."
         }
     }
 
@@ -185,6 +219,10 @@ public enum L10n: Sendable {
         case .blockerBattery(let percent, let minimum): "pin \(percent)% < \(minimum)%"
         case .blockerThermal(let state): "nhiệt độ mức \(state)"
         case .blockerBackpack(let state): "bảo vệ trong balo: nhiệt độ mức \(state) khi gập nắp và dùng pin"
+        case .blockerCooling(let remaining, let attempt, let limit):
+            "đang chờ nguội, chạy lại lần \(attempt)/\(limit) sau \(remaining)"
+        case .blockerThermalLockout(let trips):
+            "đã khoá vì nóng \(trips) lần — tắt rồi bật lại NonSleep khi máy đã nguội"
         case .manualUntil(let time): "Thủ công đến \(time)"
         case .manualUntilOff: "Thủ công đến khi tắt"
 
@@ -214,6 +252,14 @@ public enum L10n: Sendable {
         case .finishSetup: "Hoàn tất cài đặt…"
         case .openConfigFile: "Mở config.json"
         case .securityPolicy: "Chính sách bảo mật"
+        case .checkForUpdates: "Kiểm tra bản mới"
+        case .checkingForUpdates: "Đang kiểm tra…"
+        case .openReleasesPage: "Mở trang Releases"
+        case .versionCurrent(let version): "Phiên bản \(version)"
+        case .versionUpToDate: "Đang dùng bản mới nhất"
+        case .versionAvailable(let version): "Đã có phiên bản \(version)"
+        case .versionCheckFailed(let detail): "Kiểm tra thất bại: \(detail)"
+        case .updateCheckHelp: "Đây là request mạng duy nhất của NonSleep, và chỉ chạy khi bạn bấm nút. Không gửi dữ liệu gì, không tải gì về, không chạy ngầm. Nếu dùng Homebrew: brew upgrade --cask nonsleep."
 
         case .sectionKeepingAwake: "Đang giữ máy thức"
         case .sectionAgents: "Agent"
@@ -253,6 +299,17 @@ public enum L10n: Sendable {
         case .settingSoundHelp: "Kêu một tiếng khi tác vụ cuối kết thúc, để bạn biết dù đang ở xa máy. Đặt soundPath trong config.json nếu muốn dùng file riêng."
         case .settingBackpack: "Bảo vệ khi để trong balo"
         case .settingBackpackHelp: "Khi gập nắp, dùng pin và không có màn hình ngoài, máy sẽ nhả sớm hơn lúc nóng lên — máy gập trong túi không có đường thoát nhiệt."
+        case .settingThermalLimit: "Dừng khi nhiệt độ đạt mức"
+        case .settingThermalLimitHelp: "Chế độ gập nắp tạm dừng khi nhiệt độ từ mức này trở lên. Gập nắp làm mất đường thoát nhiệt qua bàn phím, nên hãy chọn mức thấp hơn nếu máy nóng khó chịu."
+        case .settingBackpackThermalLimit: "…và khi để trong balo, dừng ở mức"
+        case .settingThermalRetries(let count): "Tự chạy lại tối đa \(count) lần"
+        case .settingThermalRetriesHelp: "Sau khi máy nguội, chế độ gập nắp tự bật lại tối đa bấy nhiêu lần cho mỗi phiên. Đặt 0 nếu không muốn tự bật lại."
+        case .settingThermalCooldown(let duration): "Chờ nguội \(duration) rồi mới chạy lại"
+        case .settingThermalCooldownHelp: "Máy phải nằm dưới ngưỡng nhiệt trong khoảng thời gian này thì mới được tự chạy lại."
+        case .settingThermalMinRun(let duration): "Bỏ cuộc nếu lại nóng trong vòng \(duration)"
+        case .settingThermalMinRunHelp: "Chạy lại mà nóng ngay như vậy nghĩa là chờ nguội không còn tác dụng, NonSleep sẽ ngừng thử lại."
+        case .thermalRetriesUsed(let used, let limit, let trips):
+            "Nhiệt: nóng \(trips) lần, đã tự chạy lại \(used)/\(limit)"
         case .settingLanguage: "Ngôn ngữ"
 
         case .setupSudoers: "Quy tắc pmset không cần mật khẩu"
@@ -261,7 +318,7 @@ public enum L10n: Sendable {
         case .setupScreenLock(let delay): "Độ trễ khoá màn hình: \(delay)"
         case .setupScreenLockDetail: "Muốn khoá khi gập nắp, cần đặt Cài đặt hệ thống › Màn hình khoá › Yêu cầu mật khẩu: Ngay lập tức"
         case .setupAdminPrompt: "Chỉ cần nhập mật khẩu quản trị một lần duy nhất: để NonSleep bật/tắt `pmset disablesleep` và tự dọn dẹp sau khi gặp sự cố."
-        case .setupOfflineNote: "NonSleep hoạt động 100% ngoại tuyến (không truy cập mạng, không telemetry, không daemon chạy quyền root). Quy tắc sudoers chỉ cho phép đúng `pmset -a disablesleep 0|1`."
+        case .setupOfflineNote: "NonSleep chạy ngoại tuyến: không telemetry, không daemon chạy quyền root, và request duy nhất nó có thể gửi là nút kiểm tra bản mới ở trên, khi bạn bấm. Quy tắc sudoers chỉ cho phép đúng `pmset -a disablesleep 0|1`."
         }
     }
 }

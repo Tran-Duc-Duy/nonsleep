@@ -8,6 +8,8 @@ public struct Status: Sendable {
     public var blockedBy: String?
     /// The flag is set but by something other than NonSleep (e.g. Amphetamine, a manual `pmset`).
     public var setByOtherTool: Bool
+    /// Overheat trips and automatic resumes recorded for the current episode.
+    public var thermalGuard: ThermalGuard = .idle
 
     /// Language is passed in rather than read from disk: `Status` is produced inside the engine
     /// lock, and re-reading the config here would widen that lock for a presentation detail.
@@ -21,23 +23,29 @@ public struct Status: Sendable {
 }
 
 public enum Policy {
-    /// Safety cut-outs that override every lease.
+    /// Safety cut-outs that override every lease. The heat side of the decision comes in as a
+    /// `ThermalVerdict` because it is stateful (cooldown, retry budget) and must be persisted.
     public static func blocker(
         _ power: PowerSnapshot,
         minBatteryPercent: Int,
-        backpackProtection: Bool = true,
+        thermal verdict: ThermalVerdict = .run,
         language: Language = .auto
     ) -> String? {
         if power.onBattery, let percent = power.batteryPercent, percent < minBatteryPercent {
             return L10n.blockerBattery(percent, minBatteryPercent)(language)
         }
-        if power.thermal >= .serious {
-            return L10n.blockerThermal(power.thermal.rawValue)(language)
+        switch verdict {
+        case .run:
+            return nil
+        case .tripped(let state, let backpack):
+            return backpack
+                ? L10n.blockerBackpack(state.rawValue)(language)
+                : L10n.blockerThermal(state.rawValue)(language)
+        case .cooling(let remaining, let attempt, let limit):
+            return L10n.blockerCooling(Duration.format(remaining), attempt, limit)(language)
+        case .lockedOut(let trips):
+            return L10n.blockerThermalLockout(trips)(language)
         }
-        if backpackProtection, power.lidClosed, power.onBattery, !power.externalDisplay, power.thermal >= .fair {
-            return L10n.blockerBackpack(power.thermal.rawValue)(language)
-        }
-        return nil
     }
 }
 
@@ -120,10 +128,28 @@ public struct NonSleep: Sendable {
         }
 
         var power = power.snapshot()
+        // The retry budget belongs to one episode: no live lease means the episode is over.
+        var guardState = store.thermalGuard
+        var verdict = ThermalVerdict.run
+        if live.isEmpty {
+            if !guardState.isIdle {
+                store.thermalGuard = .idle
+                guardState = .idle
+            }
+        } else {
+            let (next, decision) = guardState.step(
+                power: power, policy: ThermalPolicy(config: config), now: now
+            )
+            if next != guardState {
+                store.thermalGuard = next
+                guardState = next
+            }
+            verdict = decision
+        }
         let blockedBy = live.isEmpty ? nil : Policy.blocker(
             power,
             minBatteryPercent: config.minBatteryPercent,
-            backpackProtection: config.backpackProtection,
+            thermal: verdict,
             language: config.language
         )
         let wanted = !live.isEmpty && blockedBy == nil
@@ -165,6 +191,7 @@ public struct NonSleep: Sendable {
             leases: live,
             blockedBy: blockedBy,
             setByOtherTool: power.sleepDisabled && !store.ownsFlag,
+            thermalGuard: guardState,
             language: config.language
         )
     }

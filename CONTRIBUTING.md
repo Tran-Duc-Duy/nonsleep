@@ -62,14 +62,56 @@ The README's *How it works* section explains the lease model; read it before tou
 - Keep the code boring and small. No new dependencies without discussion.
 - Shell scripts are POSIX `sh` and must pass `shellcheck`.
 
+## Branching
+
+Always cut from the current `main`, never from another feature or `release/*` branch:
+
+```sh
+git checkout main
+git pull --ff-only origin main
+git checkout -b feat/lid-thermal-retry
+```
+
+`release/*` branches exist only to cut a tag. Branching from one puts the release commit in your
+PR, and because `main` carries the *squashed* version of that same commit under a different SHA,
+GitHub reports a conflict that has nothing to do with your change.
+
+Keep the branch current while you work, and before the final push:
+
+```sh
+git fetch origin
+git rebase origin/main        # not `git merge main`: keeps the PR a clean list of your commits
+```
+
+If `main` already contains a squashed copy of a commit on your branch (you branched from the
+wrong place, or kept working on a branch that was already merged), drop it while rebasing instead
+of resolving the same hunk by hand:
+
+```sh
+git rebase --onto origin/main <last-unwanted-commit>
+git push --force-with-lease    # never a bare --force
+```
+
+After your PR is squash-merged, delete the branch and start the next one from a fresh `main`.
+Continuing on a merged branch reintroduces the mismatched-SHA problem above.
+
+```sh
+git checkout main && git pull --ff-only origin main
+git branch -D feat/lid-thermal-retry
+```
+
 ## Pull requests
 
-1. Fork, branch from `main`, keep the change focused.
+1. Branch from an up-to-date `main` (see above), keep the change focused.
 2. `swift build && scripts/test.sh` pass locally; for app changes, describe what you clicked through.
 3. Add an entry under **[Unreleased]** in [CHANGELOG.md](CHANGELOG.md) for user-visible changes.
 4. Commit messages: [Conventional Commits](https://www.conventionalcommits.org/) style
    (`fix: …`, `feat: …`, `docs: …`) are appreciated.
-5. CI must be green. A maintainer will review; small follow-ups may be pushed to your branch.
+5. Every commit should build and pass the suite on its own, so `git bisect` stays useful. Splitting
+   a change across commits means splitting its tests and localized strings with it.
+6. CI must be green: `macOS · build, test, app bundle`, `Linux · build, test`, and
+   `Shell scripts · shellcheck`. A maintainer will review; small follow-ups may be pushed to your
+   branch.
 
 ## Releasing (maintainers)
 
@@ -79,6 +121,12 @@ The README's *How it works* section explains the lease model; read it before tou
 3. The *Release* workflow tests, builds the universal app, and publishes a GitHub release with
    `NonSleep-X.Y.Z-macOS.zip`, `SHA256SUMS.txt`, and the changelog section as notes.
    Tags with a suffix (`v1.2.0-beta.1`) become prereleases.
+4. Once the release exists, point the Homebrew cask at it and open a PR with the result:
+   `scripts/update-cask.sh vX.Y.Z` rewrites `Casks/nonsleep.rb` with the version and the checksum
+   taken from that release's `SHA256SUMS.txt`. Copy the file to the `homebrew-tap` repository so
+   `brew upgrade --cask nonsleep` picks it up.
+5. A release branch (`release/X.Y.Z`) is only a place to prepare the tag. Once it is merged, do
+   not branch new work from it — see *Branching*.
 
 By contributing you agree that your contributions are licensed under the [MIT License](LICENSE),
 and you agree to follow the [Code of Conduct](CODE_OF_CONDUCT.md).

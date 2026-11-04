@@ -31,8 +31,10 @@ running with the lid closed (documented in the README).
 
 ## Security Architecture & Trust Model
 
-### 1. 100% Offline by Design (Air-Gapped)
-NonSleep contains **zero network code**. It does not import `URLSession`, `Network`, sockets, or web libraries. It cannot make outbound HTTP requests, perform telemetry, or exfiltrate prompts, tokens, or system data.
+### 1. No Background Network, No Telemetry
+NonSleep sends **nothing on its own**: no telemetry, no analytics, no crash reporting, no launch check, no timer, no identifiers. The engine, the CLI (`nonsleep`), the MCP server and the reaper contain **zero network code** — they do not import `URLSession`, `Network`, or sockets, and cannot make outbound requests at all.
+
+The single exception is the **Check for updates** button in the menu bar app's window (`Sources/NonSleepBar/UpdateCheck.swift`). When — and only when — you click it, the app issues one HTTPS GET to `api.github.com/repos/Tran-Duc-Duy/nonsleep/releases/latest` over an ephemeral `URLSession` (no cookies, no cache, no credentials), reads the release tag, and compares it with the running version. It sends no data beyond the version string in the `User-Agent`, downloads nothing, and installs nothing. Parsing and version ordering live in `Sources/NonSleepKit/ReleaseFeed.swift`, which has no network code, so the claim above holds for everything except that one button.
 
 ### 2. Zero Third-Party Dependencies
 The codebase depends on **zero external packages or libraries** (0 npm packages, 0 Swift Package Manager remote dependencies). It links only against the Swift standard library and Apple system frameworks (`AppKit`, `SwiftUI`, `IOKit`, `CoreGraphics`). This eliminates third-party supply-chain compromise vectors.
@@ -67,12 +69,16 @@ Hooks configured for Claude Code, Cursor, and Antigravity:
 
 You do not have to trust pre-built binaries or claims. You can verify everything yourself:
 
-### 1. Verify Zero Network Connections
-Inspect running processes to confirm NonSleep has zero active sockets:
+### 1. Verify There Is No Background Network Activity
+Inspect running processes to confirm NonSleep holds no sockets:
 ```sh
-lsof -p $(pgrep -f "NonSleep|nonsleep") -i
+lsof -p "$(pgrep -f 'NonSleep|nonsleep' | tr '\n' ',')" -i
 ```
-Expected output: completely empty.
+Expected output: empty, unless you clicked *Check for updates* in the last few seconds. The CLI, the reaper and the MCP server never open a socket at any point; grep the sources for the proof:
+```sh
+grep -rn "URLSession\|Network\|socket(" Sources/NonSleepKit Sources/nonsleep
+```
+Expected output: empty — every network call in the project lives in `Sources/NonSleepBar/UpdateCheck.swift`.
 
 ### 2. Verify Release Provenance
 Verify that release assets were built directly on GitHub Actions from this repository's source code:

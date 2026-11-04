@@ -6,6 +6,17 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- A configurable heat cut-out with bounded auto-resume. `thermalLimit` (default `serious`) and `backpackThermalLimit` (default `fair`, applied while the lid is closed on battery with no external display) decide when lid-closed mode stops; a closed lid loses the keyboard deck as a heat path, so machines that run hot can stop at `fair` or `nominal`. After the Mac spends `thermalCooldownMinutes` back under the limit, NonSleep resumes on its own up to `thermalRetryLimit` times (default 3) per run. A resumed run that overheats again within `thermalMinRunMinutes` (default 5) ends the retries immediately rather than cycling hot-cold-hot. The budget resets once no lease is live. All five knobs are in `config.json` and in the management window; `nonsleep status` and the menu bar show the trip and resume counters while an episode is running.
+- A **Check for updates** button in the management window. It runs only on click — no launch check, no timer, no identifiers — reading the latest release tag from the GitHub API, comparing it with the running version, and linking to the release page. It downloads and installs nothing. Parsing and version ordering live in `NonSleepKit/ReleaseFeed.swift` (no network code), so the CLI, the engine, the MCP server and the reaper remain free of network imports; the one request lives in `NonSleepBar/UpdateCheck.swift`.
+- A Homebrew cask (`Casks/nonsleep.rb`): `brew install --cask Tran-Duc-Duy/tap/nonsleep`, updated with `brew upgrade --cask nonsleep`. Uninstalling runs `nonsleep setup --remove` first, so normal sleep, the sudoers rule, the reaper and the CLI link are all cleaned up. `scripts/update-cask.sh vX.Y.Z` repoints the cask at a release using the checksum from that release's `SHA256SUMS.txt`.
+- README notes on closed-lid heat and on phone hotspots dropping when the lid closes (macOS low-power Wi-Fi polling plus hinge-antenna attenuation; USB tethering is the fix).
+
+### Changed
+
+- The "100% offline / zero network" wording in the README, `SECURITY.md`, `AGENTS.md` and the landing page is now "no telemetry, no background network", stating the update button as the single, user-initiated exception. The engine, CLI, MCP server and reaper still contain no network code: `grep -rn "URLSession\|import Network\|socket(" Sources/NonSleepKit Sources/nonsleep` returns nothing.
+
 ## [0.3.0] - 2026-11-04
 
 ### Added

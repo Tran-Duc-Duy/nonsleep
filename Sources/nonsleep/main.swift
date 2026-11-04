@@ -55,6 +55,11 @@ func printStatus(_ status: Status, agents: [String]) {
     if let percent = power.batteryPercent { facts.append("battery \(percent)%") }
     if power.externalDisplay { facts.append("external display") }
     facts.append("thermal \(power.thermal.rawValue)")
+    let heat = status.thermalGuard
+    if !heat.isIdle {
+        let config = (try? engine.config()) ?? .defaults
+        facts.append("overheats \(heat.trips) · auto-resumes \(heat.resumes)/\(config.thermalRetryLimit)")
+    }
 
     print(status.headline)
     print("  " + facts.joined(separator: " · "))
