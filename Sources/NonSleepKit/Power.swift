@@ -5,8 +5,10 @@ public enum NonSleepVersion {
     public static let current = "0.3.0"
 }
 
-public enum Thermal: String, Sendable, Comparable {
+public enum Thermal: String, Codable, Sendable, Comparable, CaseIterable, Identifiable {
     case nominal, fair, serious, critical
+
+    public var id: String { rawValue }
 
     private var rank: Int {
         switch self {

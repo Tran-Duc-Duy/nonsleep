@@ -26,6 +26,16 @@ public struct Config: Codable, Sendable, Equatable {
     public var soundPath: String?
     /// Emergency cut-out when closed lid on battery experiences high temperatures.
     public var backpackProtection: Bool
+    /// Lid-closed mode stops at or above this thermal state.
+    public var thermalLimit: Thermal
+    /// Stricter ceiling while enclosed (lid closed, on battery, no external display).
+    public var backpackThermalLimit: Thermal
+    /// Automatic resumes allowed after the Mac cools; `0` never resumes on its own.
+    public var thermalRetryLimit: Int
+    /// Minutes back under the ceiling before an automatic resume is granted.
+    public var thermalCooldownMinutes: Int
+    /// A resumed run that overheats again sooner than this locks the episode out immediately.
+    public var thermalMinRunMinutes: Int
     /// Sessions kept in `history.json`; `0` turns session history off entirely.
     public var historyMaxEntries: Int
     /// Sessions older than this are dropped on the next write; `0` keeps them until evicted by count.
@@ -44,6 +54,11 @@ public struct Config: Codable, Sendable, Equatable {
         soundEnabled: false,
         soundPath: nil,
         backpackProtection: true,
+        thermalLimit: .serious,
+        backpackThermalLimit: .fair,
+        thermalRetryLimit: 3,
+        thermalCooldownMinutes: 3,
+        thermalMinRunMinutes: 5,
         historyMaxEntries: 50,
         historyRetentionDays: 30,
         language: .auto
@@ -53,6 +68,8 @@ public struct Config: Codable, Sendable, Equatable {
         assertionNames: [String], processNames: [String], minBatteryPercent: Int,
         graceSeconds: Int, sleepWhenDone: Bool, lockOnLidClose: Bool, hookTimeoutMinutes: Int,
         soundEnabled: Bool = false, soundPath: String? = nil, backpackProtection: Bool = true,
+        thermalLimit: Thermal = .serious, backpackThermalLimit: Thermal = .fair,
+        thermalRetryLimit: Int = 3, thermalCooldownMinutes: Int = 3, thermalMinRunMinutes: Int = 5,
         historyMaxEntries: Int = 50, historyRetentionDays: Int = 30, language: Language = .auto
     ) {
         self.assertionNames = assertionNames
@@ -65,6 +82,11 @@ public struct Config: Codable, Sendable, Equatable {
         self.soundEnabled = soundEnabled
         self.soundPath = soundPath
         self.backpackProtection = backpackProtection
+        self.thermalLimit = thermalLimit
+        self.backpackThermalLimit = backpackThermalLimit
+        self.thermalRetryLimit = thermalRetryLimit
+        self.thermalCooldownMinutes = thermalCooldownMinutes
+        self.thermalMinRunMinutes = thermalMinRunMinutes
         self.historyMaxEntries = historyMaxEntries
         self.historyRetentionDays = historyRetentionDays
         self.language = language
@@ -83,6 +105,12 @@ public struct Config: Codable, Sendable, Equatable {
         soundEnabled = try container.decodeIfPresent(Bool.self, forKey: .soundEnabled) ?? fallback.soundEnabled
         soundPath = try container.decodeIfPresent(String.self, forKey: .soundPath) ?? fallback.soundPath
         backpackProtection = try container.decodeIfPresent(Bool.self, forKey: .backpackProtection) ?? fallback.backpackProtection
+        // An unknown thermal state must not invalidate the whole config.
+        thermalLimit = (try? container.decodeIfPresent(Thermal.self, forKey: .thermalLimit)).flatMap { $0 } ?? fallback.thermalLimit
+        backpackThermalLimit = (try? container.decodeIfPresent(Thermal.self, forKey: .backpackThermalLimit)).flatMap { $0 } ?? fallback.backpackThermalLimit
+        thermalRetryLimit = try container.decodeIfPresent(Int.self, forKey: .thermalRetryLimit) ?? fallback.thermalRetryLimit
+        thermalCooldownMinutes = try container.decodeIfPresent(Int.self, forKey: .thermalCooldownMinutes) ?? fallback.thermalCooldownMinutes
+        thermalMinRunMinutes = try container.decodeIfPresent(Int.self, forKey: .thermalMinRunMinutes) ?? fallback.thermalMinRunMinutes
         historyMaxEntries = try container.decodeIfPresent(Int.self, forKey: .historyMaxEntries) ?? fallback.historyMaxEntries
         historyRetentionDays = try container.decodeIfPresent(Int.self, forKey: .historyRetentionDays) ?? fallback.historyRetentionDays
         // An unknown language code must not invalidate the whole config.

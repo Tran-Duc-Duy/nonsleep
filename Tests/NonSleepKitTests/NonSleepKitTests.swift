@@ -119,7 +119,13 @@ func makeEngine(_ power: FakePower) -> NonSleep {
     }
 
     @Test func hotMachineIsBlocked() {
-        #expect(Policy.blocker(PowerSnapshot(thermal: .serious), minBatteryPercent: 20) != nil)
+        let policy = ThermalPolicy(config: .defaults)
+        #expect(policy.isTooHot(PowerSnapshot(thermal: .serious)))
+        #expect(!policy.isTooHot(PowerSnapshot(thermal: .fair)))
+        #expect(Policy.blocker(
+            PowerSnapshot(thermal: .serious), minBatteryPercent: 20,
+            thermal: .tripped(.serious, backpack: false)
+        ) != nil)
         #expect(Policy.blocker(PowerSnapshot(thermal: .fair), minBatteryPercent: 20) == nil)
         #expect(Policy.blocker(PowerSnapshot(onBattery: false, batteryPercent: 5), minBatteryPercent: 20) == nil)
     }
@@ -474,15 +480,21 @@ func makeEngine(_ power: FakePower) -> NonSleep {
         #expect(store.load(now: start.addingTimeInterval(3600)).count == 1)
     }
 
-    @Test func backpackProtectionBlocker() {
-        // Enclosed in backpack: lid closed, on battery, no external display, and thermal >= fair
-        let enclosedFair = PowerSnapshot(lidClosed: true, externalDisplay: false, onBattery: true, thermal: .fair)
-        #expect(Policy.blocker(enclosedFair, minBatteryPercent: 20, backpackProtection: true) != nil)
-        // With backpackProtection disabled, fair thermal does not block
-        #expect(Policy.blocker(enclosedFair, minBatteryPercent: 20, backpackProtection: false) == nil)
-        // With external display connected, it's not a backpack
+    @Test func backpackCeilingIsStricterThanTheDeskCeiling() {
+        var config = Config.defaults
+        // Enclosed in a backpack: lid closed, on battery, no external display.
+        let enclosed = PowerSnapshot(lidClosed: true, externalDisplay: false, onBattery: true, thermal: .fair)
+        #expect(ThermalPolicy(config: config).isTooHot(enclosed))
+        // With backpack protection off, `fair` is below the plain limit.
+        config.backpackProtection = false
+        #expect(!ThermalPolicy(config: config).isTooHot(enclosed))
+        // An external display means it is on a desk, not in a bag.
+        config.backpackProtection = true
         let deskMode = PowerSnapshot(lidClosed: true, externalDisplay: true, onBattery: true, thermal: .fair)
-        #expect(Policy.blocker(deskMode, minBatteryPercent: 20, backpackProtection: true) == nil)
+        #expect(!ThermalPolicy(config: config).isTooHot(deskMode))
+        // A user who runs hot can stop at `fair` everywhere.
+        config.thermalLimit = .fair
+        #expect(ThermalPolicy(config: config).isTooHot(deskMode))
     }
 
     @Test func configExtendedFields() throws {
@@ -528,5 +540,148 @@ func makeEngine(_ power: FakePower) -> NonSleep {
         let vietnamese = try JSONDecoder().decode(Config.self, from: Data(#"{"language":"vi"}"#.utf8))
         #expect(vietnamese.language == .vi)
         #expect(vietnamese.language.resolved == .vi)
+    }
+}
+
+@Suite struct ThermalRetries {
+    let start = Date(timeIntervalSince1970: 2_000_000)
+    let policy = ThermalPolicy(
+        limit: .serious, backpackLimit: .fair, backpackProtection: true,
+        retryLimit: 3, cooldown: 180, minRun: 300
+    )
+    let hot = PowerSnapshot(thermal: .serious)
+    let cool = PowerSnapshot(thermal: .nominal)
+
+    @Test func heatTripsThenResumesAfterTheCooldown() {
+        let (tripped, hotVerdict) = ThermalGuard.idle.step(power: hot, policy: policy, now: start)
+        #expect(hotVerdict == .tripped(.serious, backpack: false))
+        #expect(tripped.trips == 1)
+
+        // Cool again, but the cooldown has not elapsed yet.
+        let (waiting, coolingVerdict) = tripped.step(power: cool, policy: policy, now: start + 60)
+        #expect(coolingVerdict == .cooling(remaining: 120, attempt: 1, limit: 3))
+        #expect(waiting.resumes == 0)
+
+        let (resumed, runVerdict) = waiting.step(power: cool, policy: policy, now: start + 180)
+        #expect(runVerdict == .run)
+        #expect(resumed.resumes == 1)
+        #expect(resumed.trippedAt == nil)
+    }
+
+    @Test func staysTrippedWhileStillHotWithoutBurningRetries() {
+        var state = ThermalGuard.idle
+        for offset in stride(from: 0.0, through: 600.0, by: 60.0) {
+            let (next, verdict) = state.step(power: hot, policy: policy, now: start + offset)
+            #expect(verdict == .tripped(.serious, backpack: false))
+            state = next
+        }
+        // One continuous overheat is one trip, and no resume was spent on it.
+        #expect(state.trips == 1)
+        #expect(state.resumes == 0)
+    }
+
+    @Test func givesUpAfterTheRetryBudgetIsSpent() {
+        var state = ThermalGuard.idle
+        var clock = start
+        // Three cycles of: overheat, cool down past minRun, resume.
+        for attempt in 1...3 {
+            state = state.step(power: hot, policy: policy, now: clock).0
+            clock += policy.cooldown
+            let (resumed, verdict) = state.step(power: cool, policy: policy, now: clock)
+            #expect(verdict == .run)
+            #expect(resumed.resumes == attempt)
+            state = resumed
+            clock += policy.minRun + 1  // long enough that this run counts as healthy
+        }
+        let (locked, verdict) = state.step(power: hot, policy: policy, now: clock)
+        #expect(verdict == .lockedOut(trips: 4))
+        #expect(locked.lockedOut)
+        // Cooling down no longer helps: the episode stays locked out.
+        #expect(locked.step(power: cool, policy: policy, now: clock + 3600).1 == .lockedOut(trips: 4))
+    }
+
+    @Test func aResumedRunThatOverheatsImmediatelyLocksOutEarly() {
+        var state = ThermalGuard.idle
+        state = state.step(power: hot, policy: policy, now: start).0
+        let resumed = state.step(power: cool, policy: policy, now: start + policy.cooldown).0
+        #expect(resumed.resumes == 1)
+
+        // Hot again only a minute into the resumed run, with retries still on the clock.
+        let (locked, verdict) = resumed.step(
+            power: hot, policy: policy, now: start + policy.cooldown + 60
+        )
+        #expect(verdict == .lockedOut(trips: 2))
+        #expect(locked.lockedOut)
+    }
+
+    @Test func retryLimitZeroNeverResumesOnItsOwn() {
+        let strict = ThermalPolicy(
+            limit: .serious, backpackLimit: .fair, backpackProtection: true,
+            retryLimit: 0, cooldown: 180, minRun: 300
+        )
+        let (locked, verdict) = ThermalGuard.idle.step(power: hot, policy: strict, now: start)
+        #expect(verdict == .lockedOut(trips: 1))
+        #expect(locked.step(power: cool, policy: strict, now: start + 3600).1 == .lockedOut(trips: 1))
+    }
+
+    @Test func engineBlocksWhileHotAndForgetsTheEpisodeWhenLeasesEnd() throws {
+        let power = FakePower(PowerSnapshot(thermal: .serious))
+        let engine = makeEngine(power)
+
+        let blocked = try engine.hold(.owned(id: "a", reason: "build"))
+        #expect(blocked.blockedBy != nil)
+        #expect(!power.flag)
+        #expect(blocked.thermalGuard.trips == 1)
+
+        // Still hot: the lease is held but the flag stays off.
+        power.update { $0.thermal = .nominal }
+        let cooling = try engine.reconcile()
+        #expect(cooling.blockedBy != nil)  // cooldown has not elapsed
+        #expect(!power.flag)
+
+        // Releasing every lease ends the episode, so the next run starts with a full budget.
+        let idle = try engine.releaseAll()
+        #expect(idle.thermalGuard.isIdle)
+        #expect(engine.store.thermalGuard.isIdle)
+
+        let running = try engine.hold(.owned(id: "b", reason: "build"))
+        #expect(running.blockedBy == nil)
+        #expect(power.flag)
+    }
+}
+
+@Suite struct ReleaseFeedParsing {
+    let fallback = URL(string: "https://example.invalid/releases")!
+
+    @Test func newerVersionsAreOrderedNumericallyNotLexically() {
+        #expect(ReleaseFeed.isNewer("0.4.0", than: "0.3.0"))
+        #expect(ReleaseFeed.isNewer("0.10.0", than: "0.9.0"))  // not a string comparison
+        #expect(ReleaseFeed.isNewer("1.0.0", than: "0.9.9"))
+        #expect(ReleaseFeed.isNewer("v0.3.1", than: "0.3.0"))  // tag prefix is ignored
+        #expect(!ReleaseFeed.isNewer("0.3.0", than: "0.3.0"))
+        #expect(!ReleaseFeed.isNewer("0.2.9", than: "0.3.0"))
+        #expect(ReleaseFeed.isNewer("0.4", than: "0.3.9"))     // missing components count as 0
+    }
+
+    @Test func aReleaseOutranksThePrereleaseOfTheSameNumber() {
+        #expect(ReleaseFeed.isNewer("0.3.0", than: "0.3.0-beta.1"))
+        #expect(!ReleaseFeed.isNewer("0.3.0-beta.1", than: "0.3.0"))
+        #expect(ReleaseFeed.isNewer("0.3.0-beta.2", than: "0.3.0-beta.1"))
+        #expect(!ReleaseFeed.isNewer("0.3.0-beta.1", than: "0.3.0-beta.1"))
+    }
+
+    @Test func parsesTheTagAndPageAndRejectsRubbish() {
+        let body = Data(#"{"tag_name":"v0.4.0","html_url":"https://example.test/tag/v0.4.0"}"#.utf8)
+        let release = ReleaseFeed.parse(body, fallbackPage: fallback)
+        #expect(release?.version == "0.4.0")
+        #expect(release?.page.absoluteString == "https://example.test/tag/v0.4.0")
+
+        // A tag without a page link still works; the caller's fallback is used.
+        let noPage = ReleaseFeed.parse(Data(#"{"tag_name":"0.4.0"}"#.utf8), fallbackPage: fallback)
+        #expect(noPage?.page == fallback)
+
+        #expect(ReleaseFeed.parse(Data("not json".utf8), fallbackPage: fallback) == nil)
+        #expect(ReleaseFeed.parse(Data(#"{"tag_name":""}"#.utf8), fallbackPage: fallback) == nil)
+        #expect(ReleaseFeed.parse(Data(), fallbackPage: fallback) == nil)
     }
 }
