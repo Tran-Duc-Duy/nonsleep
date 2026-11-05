@@ -33,9 +33,14 @@ NonSleep automates this flag safely:
   - `MacPower.swift` / `LinuxPower.swift`: Platform power controls (`pmset` vs `logind`).
   - `Lid.swift`: IOKit clamshell event listener.
   - `Processes.swift`: Process introspection, PID start time tracking (PID reuse guard).
+  - `StatusReport.swift`: Stable JSON schema behind `nonsleep status --json`, consumed by Linux frontends.
 - **`Sources/nonsleep/`**: Native CLI binary (`nonsleep`).
 - **`Sources/NonSleepBar/`**: Native macOS Menu Bar application (AppKit + SwiftUI).
-- **`scripts/`**: Build, packaging, install, and uninstall helper scripts.
+- **`scripts/`**: Build, packaging, install, and uninstall helper scripts, plus `nonsleep-indicator.py`
+  — the Linux tray indicator. It is a frontend only: it polls `nonsleep status --json` and shells out
+  to `nonsleep on|off|sleep`. Never add lease, lock or policy logic to it; it must stay disposable.
+- **`assets/linux/icons/`**: Tray icons (`nonsleep-{normal,awake,suspended}-symbolic.svg`), installed
+  into `~/.local/share/icons/hicolor/scalable/apps` by `install-linux.sh --indicator`.
 
 ---
 
@@ -95,7 +100,7 @@ Any agent supporting standard MCP (Claude Desktop, Cursor, Windsurf, OpenCode, G
 ## 4. CLI Quick Reference
 
 ```sh
-nonsleep status               # View current sleep mode, active leases, power state, and agents
+nonsleep status [--json]      # Sleep mode, leases, power, agents; --json for frontends (schema 1)
 nonsleep run -- <command>     # Keep awake while command runs; sleep when it exits
 nonsleep wait <target...>     # Keep awake while target PIDs or process names run
 nonsleep on [DURATION]        # Keep awake with lid closed (e.g. 45m, 2h, 90s, or until off)

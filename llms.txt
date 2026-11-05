@@ -16,7 +16,7 @@ Key properties:
 
 Install: `git clone https://github.com/Tran-Duc-Duy/nonsleep && cd nonsleep && scripts/install.sh`
 
-Primary commands: `nonsleep status`, `nonsleep on [DURATION]`, `nonsleep off`, `nonsleep sleep`, `nonsleep run -- CMD`, `nonsleep wait TARGET…`, `nonsleep auto`, `nonsleep integrate [AGENT…]`, `nonsleep doctor`, `nonsleep history`, `nonsleep mcp`, `nonsleep setup`.
+Primary commands: `nonsleep status [--json]`, `nonsleep on [DURATION]`, `nonsleep off`, `nonsleep sleep`, `nonsleep run -- CMD`, `nonsleep wait TARGET…`, `nonsleep auto`, `nonsleep integrate [AGENT…]`, `nonsleep doctor`, `nonsleep history`, `nonsleep mcp`, `nonsleep setup`. `status --json` emits a stable schema (mode, leases, agents, power) for Linux tray indicators, waybar modules and scripts.
 
 ## Docs
 

@@ -9,7 +9,7 @@ import NonSleepKit
 let usage = """
     usage: nonsleep <command>
 
-      status               show lid-closed mode, leases, agent activity, power
+      status [--json]      show lid-closed mode, leases, agent activity, power
       on [DURATION]        keep awake with the lid closed until `off`, DURATION (90m, 3h), or reboot
       off                  release every lease and restore normal sleep
       sleep                release every lease and put the Mac to sleep now
@@ -290,7 +290,17 @@ do {
     switch command {
     case "status":
         let config = (try? engine.config()) ?? .defaults
-        printStatus(try engine.reconcile(), agents: Agents.activity(config: config))
+        let json = arguments.contains("--json")
+        if let unknown = arguments.first(where: { $0 != "--json" }) {
+            fail("status: unknown option \(unknown)")
+        }
+        let agents = Agents.detected(config: config)
+        let status = try engine.reconcile()
+        if json {
+            print(StatusReport(status, agents: agents, thermalRetryLimit: config.thermalRetryLimit).json())
+        } else {
+            printStatus(status, agents: agents.map(\.label))
+        }
     case "on":
         guard arguments.count <= 1 else { fail("on: expected at most one DURATION") }
         let duration = try arguments.first.map { text in
