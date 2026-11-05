@@ -110,6 +110,7 @@ Laptops on systemd distributions suspend on lid close by default (`HandleLidSwit
 ```sh
 tar -xzf nonsleep-X.Y.Z-linux-x86_64.tar.gz && cd nonsleep-X.Y.Z-linux-x86_64   # or -aarch64
 ./install.sh          # ~/.local/bin/nonsleep + autostart `nonsleep auto` in your desktop session
+./install.sh --indicator   # the same, plus the tray indicator below
 nonsleep status
 ```
 
@@ -122,6 +123,28 @@ How it differs from macOS:
 - Lock on lid close uses `loginctl lock-session`; "sleep now" uses `systemctl suspend`. There's no thermal cut-out on Linux (battery cut-out only).
 - Polkit lets processes in your **active local session** take these locks; over SSH they're refused. That's why `install.sh` uses desktop autostart for `nonsleep auto` rather than a `systemd --user` service.
 - State lives in `~/.local/state/nonsleep`, config in `~/.config/nonsleep/config.json`.
+
+#### Tray indicator
+
+`--indicator` installs `nonsleep-indicator` (python3 + GTK 3 + AppIndicator), an autostart entry
+for it, and its icons into `~/.local/share/icons/hicolor/scalable/apps`. It is a pure frontend:
+it polls `nonsleep status --json` every 5 s and runs `nonsleep on|off|sleep` from its menu, so it
+holds no lease, no lock and no state of its own — killing it changes nothing about sleep.
+
+- icon: moon (normal sleep) · eye (awake with the lid closed) · ⚠︎ (cut-out, or another tool owns it)
+- menu: the current headline, leases with their countdown, detected agents, then *Keep awake*
+  45 m / 2 h / until off / custom…, *Off*, *Sleep now*
+- GNOME shows tray icons only through the AppIndicator extension (shipped with Ubuntu). On Debian
+  and Fedora install the bindings: `python3-gi gir1.2-gtk-3.0 gir1.2-ayatanaappindicator3-0.1` /
+  `python3-gobject gtk3 libayatana-appindicator-gtk3`.
+- No tray at all (sway, i3, …): `nonsleep-indicator --once` prints one waybar/polybar JSON line
+  (`text`, `alt`, `class`, `tooltip`) and needs no GTK:
+
+  ```jsonc
+  // ~/.config/waybar/config
+  "custom/nonsleep": { "exec": "nonsleep-indicator --once", "return-type": "json", "interval": 5,
+                       "on-click": "nonsleep off" }
+  ```
 
 ## Use
 
@@ -148,7 +171,7 @@ Logs: `log show --last 1h --predicate 'subsystem == "dev.nonsleep.app"'`.
 ### CLI
 
 ```text
-nonsleep status               lid-closed mode, leases, agent activity, power
+nonsleep status [--json]      lid-closed mode, leases, agent activity, power
 nonsleep on [DURATION]        detached: until `off`, DURATION (90m, 3h, 1h30m), or reboot
 nonsleep off                  release every lease, restore normal sleep
 nonsleep sleep                release every lease and sleep now
@@ -167,6 +190,34 @@ nonsleep hook AGENT EVENT     what those hooks call (event JSON on stdin; always
 `run` spawns the command in your terminal's foreground process group, so interactive TUIs keep working and Ctrl-C goes straight to them.
 
 `off` (and **Turn off** in the menu) drops the leases that exist *now*. A `run`, `wait`, or `auto` process that is still running takes its lease back on its next tick (10–15 s), so stop that process if you want it to stay off.
+
+#### Machine-readable status
+
+`nonsleep status --json` prints the same state with stable keys, so a tray indicator, a GNOME
+extension, a waybar module or a shell script never has to parse localized prose:
+
+```jsonc
+{
+  "schema": 1,                       // bumped only on a rename or removal
+  "version": "0.3.0",
+  "platform": "macos",               // or "linux"
+  "generatedAt": "2026-11-05T15:16:52Z",
+  "mode": "awake",                   // awake | normal | suspended | foreign
+  "headline": "Stays awake with the lid closed",   // localized, display only
+  "blockedBy": null,                 // localized cut-out reason when mode is "suspended"
+  "power": { "sleepDisabled": true, "lidClosed": false, "externalDisplay": false,
+             "onBattery": true, "batteryPercent": 56, "thermal": "nominal" },
+  "leases": [{ "id": "manual", "reason": "Manual until 23:04",
+               "ownerPID": null, "expiresAt": "2026-11-05T16:04:00Z" }],
+  "agents": [{ "name": "omp agent session", "pid": 3755, "source": "assertion" }],
+  "thermalGuard": { "trips": 0, "resumes": 0, "retryLimit": 3, "lockedOut": false }
+}
+```
+
+`mode` is the field to switch an icon on: `suspended` outranks `foreign`, which outranks
+`awake`/`normal`, exactly like the headline. `ownerPID` is `null` for detached leases, `expiresAt`
+is `null` for leases that live until `off` or reboot, and `thermalGuard` stays idle on Linux,
+which has no heat cut-out.
 
 ### Agents
 
@@ -282,10 +333,12 @@ Source map (`Sources/`):
 | `NonSleepKit/Power.swift` | IOKit reads (flag, lid, battery, displays, thermal), `pmset` calls |
 | `NonSleepKit/Processes.swift` | libproc/sysctl process info, power assertions |
 | `NonSleepKit/Agents.swift` | agent activity matching, grace window |
+| `NonSleepKit/StatusReport.swift` | `status --json`: stable schema for tray indicators and scripts |
 | `NonSleepKit/Lid.swift` | lid open/close events (IOKit clamshell message) |
 | `NonSleepKit/Setup.swift` | install checks: sudoers rule, reaper, screen-lock delay |
 | `NonSleepKit/Integrations.swift` | Claude Code / Cursor / Antigravity hooks: event → action, config install/remove |
 | `nonsleep/main.swift` | CLI |
+| `scripts/nonsleep-indicator.py` | Linux tray indicator / waybar module; shells out to the CLI only |
 | `NonSleepBar/NonSleepBarApp.swift` | app entry, delegate, menu bar menu |
 | `NonSleepBar/BarModel.swift` | state and actions shared by menu and window |
 | `NonSleepBar/MainWindow.swift` | management window |

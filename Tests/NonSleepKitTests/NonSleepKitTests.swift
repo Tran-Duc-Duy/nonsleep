@@ -194,9 +194,10 @@ func makeEngine(_ power: FakePower) -> NonSleep {
             PowerAssertion(pid: 3, name: "caffeinate command-line tool"),
             PowerAssertion(pid: 4, name: "Electron"),
         ]
-        #expect(Agents.matching(assertions, names: ["OMP agent", "caffeinate"]) == [
+        #expect(Agents.matching(assertions, names: ["OMP agent", "caffeinate"]).map(\.label) == [
             "omp agent session · pid 2", "caffeinate command-line tool · pid 3",
         ])
+        #expect(Agents.matching(assertions, names: ["omp"]).map(\.source) == [.assertion])
     }
 
     @Test func graceKeepsHoldingBetweenTurns() {
@@ -230,6 +231,61 @@ func makeEngine(_ power: FakePower) -> NonSleep {
         let config = try JSONDecoder().decode(Config.self, from: Data(#"{"processNames":["claude"]}"#.utf8))
         #expect(config.processNames == ["claude"])
         #expect(config.assertionNames == Config.defaults.assertionNames)
+    }
+}
+
+@Suite struct JSONStatus {
+    let now = Date(timeIntervalSince1970: 1_700_000_000)
+
+    func report(_ status: Status, agents: [AgentActivity] = []) -> StatusReport {
+        StatusReport(status, agents: agents, thermalRetryLimit: 3, now: now)
+    }
+
+    /// `mode` is what a tray icon switches on, so it must follow the same precedence as the
+    /// headline: a cut-out outranks a foreign flag, which outranks "we hold it".
+    @Test func modeFollowsHeadlinePrecedence() {
+        let held = PowerSnapshot(sleepDisabled: true)
+        #expect(report(Status(power: held, leases: [], blockedBy: nil, setByOtherTool: false)).mode == .awake)
+        #expect(report(Status(power: PowerSnapshot(), leases: [], blockedBy: nil, setByOtherTool: false)).mode == .normal)
+        #expect(report(Status(power: held, leases: [], blockedBy: nil, setByOtherTool: true)).mode == .foreign)
+        #expect(report(Status(power: held, leases: [], blockedBy: "battery 9% < 20%", setByOtherTool: true)).mode == .suspended)
+    }
+
+    @Test func reportRoundTripsThroughJSON() throws {
+        let status = Status(
+            power: PowerSnapshot(sleepDisabled: true, lidClosed: true, onBattery: true, batteryPercent: 41, thermal: .fair),
+            leases: [
+                Lease.detached(id: "manual", reason: "manual until 16:20", expiresAt: now + 600),
+                Lease(id: "run", reason: "run: swift test", ownerPID: 42, ownerStart: 9, bootTime: 7, expiresAt: nil),
+            ],
+            blockedBy: nil,
+            setByOtherTool: false,
+            thermalGuard: ThermalGuard(trips: 2, resumes: 1, lockedOut: true)
+        )
+        let original = report(status, agents: [AgentActivity(name: "claude", pid: 7, source: .process)])
+        let decoded = try StatusReport.decode(original.json())
+
+        #expect(decoded == original)
+        #expect(decoded.schema == 1)
+        #expect(decoded.leases.map(\.ownerPID) == [nil, 42])
+        #expect(decoded.leases[0].expiresAt == now + 600)
+        #expect(decoded.agents == [AgentActivity(name: "claude", pid: 7, source: .process)])
+        #expect(decoded.thermalGuard == StatusReport.ThermalGuardInfo(trips: 2, resumes: 1, retryLimit: 3, lockedOut: true))
+        #expect(decoded.power.batteryPercent == 41)
+        #expect(decoded.power.thermal == .fair)
+    }
+
+    /// Frontends poll this; the keys and the enumerated values are the contract, not the prose.
+    @Test func jsonUsesStableKeysAndISODates() throws {
+        let text = report(Status(power: PowerSnapshot(), leases: [], blockedBy: nil, setByOtherTool: false)).json()
+        let object = try #require(try JSONSerialization.jsonObject(with: Data(text.utf8)) as? [String: Any])
+        #expect(Set(object.keys) == [
+            "schema", "version", "platform", "generatedAt", "mode", "headline",
+            "power", "leases", "agents", "thermalGuard",
+        ])
+        #expect(object["generatedAt"] as? String == "2023-11-14T22:13:20Z")
+        #expect(object["mode"] as? String == "normal")
+        #expect(["macos", "linux"].contains(object["platform"] as? String ?? ""))
     }
 }
 

@@ -6,6 +6,11 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- `nonsleep status --json`: the whole status as machine-readable JSON with a stable `schema` (1) — `mode` (`awake`/`normal`/`suspended`/`foreign`), localized `headline` and `blockedBy` for display, `power`, `leases` (id, reason, `ownerPID`, `expiresAt`), structured `agents` (name, pid, `source`), and `thermalGuard` with its retry limit. Frontends — a tray indicator, a GNOME extension, a waybar module, a shell script — no longer have to parse human text that changes with the interface language.
+- A Linux tray indicator, opt-in with `install.sh --indicator`: `nonsleep-indicator` (python3 + GTK 3 + AppIndicator) plus its icons and an autostart entry. It is a pure frontend — it polls `status --json` and runs `nonsleep on|off|sleep`, holds no lease and no lock, so killing it changes nothing about sleep. Icon shows normal / awake / cut-out; the menu lists the headline, leases with a countdown and detected agents, and offers *Keep awake* 45 m / 2 h / until off / custom…, *Off* and *Sleep now*. `nonsleep-indicator --once` prints one waybar/polybar JSON line (`text`, `alt`, `class`, `tooltip`) and needs no GTK at all.
+
 ## [0.3.0] - 2026-11-04
 
 ### Added
