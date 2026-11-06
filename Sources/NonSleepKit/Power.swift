@@ -2,7 +2,7 @@ import Foundation
 
 /// Reported to MCP clients in `serverInfo`. Bump with the release tag and CHANGELOG entry.
 public enum NonSleepVersion {
-    public static let current = "0.3.0"
+    public static let current = "0.4.0"
 }
 
 public enum Thermal: String, Codable, Sendable, Comparable, CaseIterable, Identifiable {

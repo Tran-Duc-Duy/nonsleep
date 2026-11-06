@@ -65,7 +65,16 @@ enum LinuxParse {
     /// `/sys/class/power_supply/*` entries → whether we run on battery, and its charge.
     /// A battery that is "Discharging" means no AC; capacity is already a percentage.
     static func battery(_ supplies: [(type: String, status: String?, capacity: String?)]) -> (onBattery: Bool, percent: Int?) {
-        let batteries = supplies.filter { $0.type == "Battery" }
+        battery(supplies.map { ("", $0.type, $0.status, $0.capacity, nil) })
+    }
+
+    static func battery(
+        _ supplies: [(name: String, type: String, status: String?, capacity: String?, scope: String?)]
+    ) -> (onBattery: Bool, percent: Int?) {
+        // Exclude peripheral batteries like wireless mice or keyboards (scope == "Device", hidpp_*)
+        let batteries = supplies.filter {
+            $0.type == "Battery" && $0.scope != "Device" && !$0.name.hasPrefix("hidpp")
+        }
         let discharging = batteries.contains { $0.status == "Discharging" }
         let percent = batteries.compactMap { $0.capacity.flatMap { Int($0) } }.first
         return (discharging, percent)

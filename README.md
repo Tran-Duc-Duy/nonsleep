@@ -7,7 +7,7 @@
 ![Offline](https://img.shields.io/badge/Telemetry-None%20%C2%B7%20No%20background%20network-2ea44f)
 ![Dependencies](https://img.shields.io/badge/Dependencies-0%20(Pure%20Swift)-2ea44f)
 
-Keep your Mac working **with the lid closed** while your AI coding agents run — and let it sleep again the moment they finish.
+Keep your Mac or Linux laptop working **with the lid closed** while your AI coding agents run — and let it sleep again the moment they finish.
 
 `caffeinate`, Amphetamine's basic mode, and agents' own "prevent sleep" settings all use `IOPMAssertion`, which only blocks *idle* sleep. Closing the lid still sleeps the Mac. The only switch that survives a closed lid is the system flag `pmset disablesleep 1`, which needs root and is easy to forget on. NonSleep turns that flag on only while something actually needs it, and guarantees it turns off again.
 
@@ -34,6 +34,10 @@ Keep your Mac working **with the lid closed** while your AI coding agents run �
 3. **Long Downloads, Builds, or Renders**: Run `nonsleep run -- npm run build` or `nonsleep wait <PID>`. Close the lid; your Mac sleeps the second the process exits.
 
 ## Install
+
+- **macOS (13+)**: [Homebrew](#homebrew-macos-13) or [Direct download](#download-macos-13)
+- **Linux**: [Prebuilt release tarball](#linux) (Ubuntu/Debian, Fedora, Arch; x86_64 & aarch64, no root needed)
+- **From source**: [Swift build](#from-source)
 
 ### Homebrew (macOS 13+)
 
@@ -103,15 +107,22 @@ you ALL=(root) NOPASSWD: /usr/bin/pmset -a disablesleep 0, /usr/bin/pmset -a dis
 Uninstall: `scripts/uninstall.sh`, or `nonsleep integrate all --remove && nonsleep setup --remove`
 and delete the app. Either way normal sleep is restored first.
 
-### Linux (CLI)
+### Linux
 
-Laptops on systemd distributions suspend on lid close by default (`HandleLidSwitch=suspend`). NonSleep for Linux is the same CLI (`status`, `on`, `run`, `wait`, `auto`, `integrate`, hooks…), no menu bar app, and **no root**:
+Laptops on systemd distributions suspend on lid close by default (`HandleLidSwitch=suspend`). NonSleep for Linux includes the native CLI and an opt-in tray indicator, with **no root needed**:
 
 ```sh
-tar -xzf nonsleep-X.Y.Z-linux-x86_64.tar.gz && cd nonsleep-X.Y.Z-linux-x86_64   # or -aarch64
-./install.sh          # ~/.local/bin/nonsleep + autostart `nonsleep auto` in your desktop session
-./install.sh --indicator   # the same, plus the tray indicator below
+# Download the latest prebuilt release (no Swift compiler needed):
+curl -fsSLO https://github.com/Tran-Duc-Duy/nonsleep/releases/latest/download/nonsleep-linux-$(uname -m | sed s/arm64/aarch64/).tar.gz
+tar -xzf nonsleep-linux-*.tar.gz && cd nonsleep-*
+./install.sh --indicator   # CLI + tray indicator + desktop autostart
 nonsleep status
+```
+
+Verify download integrity against `SHA256SUMS.txt`:
+```sh
+curl -fsSLO https://github.com/Tran-Duc-Duy/nonsleep/releases/latest/download/SHA256SUMS.txt
+sha256sum --ignore-missing -c SHA256SUMS.txt
 ```
 
 From source: `scripts/install-linux.sh` (needs Swift 6). Uninstall: `./uninstall.sh` / `scripts/uninstall-linux.sh`.
@@ -131,7 +142,7 @@ for it, and its icons into `~/.local/share/icons/hicolor/scalable/apps`. It is a
 it polls `nonsleep status --json` every 5 s and runs `nonsleep on|off|sleep` from its menu, so it
 holds no lease, no lock and no state of its own — killing it changes nothing about sleep.
 
-- icon: moon (normal sleep) · eye (awake with the lid closed) · ⚠︎ (cut-out, or another tool owns it)
+- icon: moon (normal sleep) · eye (awake with lid closed) · moon with pause bars (safety cut-out active, normal sleep allowed)
 - menu: the current headline, leases with their countdown, detected agents, then *Keep awake*
   45 m / 2 h / until off / custom…, *Off*, *Sleep now*
 - GNOME shows tray icons only through the AppIndicator extension (shipped with Ubuntu). On Debian
@@ -199,7 +210,7 @@ extension, a waybar module or a shell script never has to parse localized prose:
 ```jsonc
 {
   "schema": 1,                       // bumped only on a rename or removal
-  "version": "0.3.0",
+  "version": "0.4.0",
   "platform": "macos",               // or "linux"
   "generatedAt": "2026-11-05T15:16:52Z",
   "mode": "awake",                   // awake | normal | suspended | foreign

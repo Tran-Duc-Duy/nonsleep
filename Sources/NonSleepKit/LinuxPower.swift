@@ -133,7 +133,13 @@ enum LinuxSystem {
                 let text = Proc.text("\(root)/\(name)/\(file)").trimmingCharacters(in: .whitespacesAndNewlines)
                 return text.isEmpty ? nil : text
             }
-            return (type: read("type") ?? "", status: read("status"), capacity: read("capacity"))
+            return (
+                name: name,
+                type: read("type") ?? "",
+                status: read("status"),
+                capacity: read("capacity"),
+                scope: read("scope")
+            )
         })
     }
 

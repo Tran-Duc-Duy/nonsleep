@@ -6,10 +6,16 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-11-06
+
 ### Added
 
-- `nonsleep status --json`: the whole status as machine-readable JSON with a stable `schema` (1) — `mode` (`awake`/`normal`/`suspended`/`foreign`), localized `headline` and `blockedBy` for display, `power`, `leases` (id, reason, `ownerPID`, `expiresAt`), structured `agents` (name, pid, `source`), and `thermalGuard` with its retry limit. Frontends — a tray indicator, a GNOME extension, a waybar module, a shell script — no longer have to parse human text that changes with the interface language.
-- A Linux tray indicator, opt-in with `install.sh --indicator`: `nonsleep-indicator` (python3 + GTK 3 + AppIndicator) plus its icons and an autostart entry. It is a pure frontend — it polls `status --json` and runs `nonsleep on|off|sleep`, holds no lease and no lock, so killing it changes nothing about sleep. Icon shows normal / awake / cut-out; the menu lists the headline, leases with a countdown and detected agents, and offers *Keep awake* 45 m / 2 h / until off / custom…, *Off* and *Sleep now*. `nonsleep-indicator --once` prints one waybar/polybar JSON line (`text`, `alt`, `class`, `tooltip`) and needs no GTK at all.
+- `nonsleep status --json`: the whole status as machine-readable JSON with a stable `schema` (1) — `mode` (`awake`/`normal`/`suspended`/`foreign`), localized `headline` and `blockedBy` for display, `power`, `leases` (id, reason, `ownerPID`, `expiresAt`), structured `agents` (name, pid, `source`), and `thermalGuard` with its retry limit. On Linux, `power.thermal` is `null` (since Linux has no heat cut-out and does not measure thermal state). Frontends — a tray indicator, a GNOME extension, a waybar module, a shell script — no longer have to parse human text that changes with the interface language.
+- A Linux tray indicator, opt-in with `install.sh --indicator`: `nonsleep-indicator` (python3 + GTK 3 + AppIndicator) plus its icons and an autostart entry. It is a pure frontend — it polls `status --json` and runs `nonsleep on|off|sleep`, holds no lease and no lock, so killing it changes nothing about sleep.
+- Dedicated symbolic tray icons: awake (open eye), normal sleep (crescent moon), paused (crescent moon with pause bars), error (warning triangle). Paused states (safety cut-out when battery < 20%) clearly indicate normal sleep is active rather than showing a misleading error triangle.
+- Version-free Linux release assets (`nonsleep-linux-x86_64.tar.gz` and `-aarch64`) uploaded to GitHub releases alongside versioned ones, so scripts, agents and curl commands can fetch the latest release reliably.
+- `install-linux.sh` checks for the Swift compiler when building from source and directs users to the prebuilt release tarball if missing, and verifies AppIndicator bindings when `--indicator` is passed, printing the exact `apt` / `dnf` command if missing.
+- Linux power supply detection ignores peripheral batteries (e.g. wireless mice or keyboards via `hidpp`) and correctly scopes to system laptop batteries (`BAT*`).
 
 ## [0.3.0] - 2026-11-04
 
@@ -87,7 +93,8 @@ First public release.
   held by an on-demand keeper process (no root), omp detection via login1 inhibitors, the same
   hooks, lock on lid close via `loginctl`, and `install.sh` with desktop autostart for `nonsleep auto`.
 
-[Unreleased]: ../../compare/v0.3.0...HEAD
+[Unreleased]: ../../compare/v0.4.0...HEAD
+[0.4.0]: ../../compare/v0.3.0...v0.4.0
 [0.3.0]: ../../compare/v0.2.0...v0.3.0
 [0.2.0]: ../../compare/v0.1.1...v0.2.0
 [0.1.1]: ../../compare/v0.1.0...v0.1.1

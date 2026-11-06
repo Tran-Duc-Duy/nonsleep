@@ -26,16 +26,16 @@ from datetime import datetime, timezone
 ICONS = {
     "awake": "nonsleep-awake-symbolic",
     "normal": "nonsleep-normal-symbolic",
-    "suspended": "nonsleep-suspended-symbolic",
-    "foreign": "nonsleep-suspended-symbolic",
-    "unavailable": "nonsleep-suspended-symbolic",
+    "suspended": "nonsleep-paused-symbolic",
+    "foreign": "nonsleep-paused-symbolic",
+    "unavailable": "nonsleep-error-symbolic",
 }
 # Used when NonSleep's own icons were not installed (running from a checkout, or a theme
 # that ignores hicolor): plain freedesktop names every icon theme carries.
 FALLBACK_ICONS = {
     "awake": "display-brightness-symbolic",
     "normal": "weather-clear-night-symbolic",
-    "suspended": "dialog-warning-symbolic",
+    "suspended": "media-playback-pause-symbolic",
     "foreign": "dialog-warning-symbolic",
     "unavailable": "dialog-error-symbolic",
 }
@@ -140,13 +140,31 @@ def summarize(report):
     if mode == "awake" and soonest:
         text = f"awake {soonest}"
 
-    lines = [report.get("headline", LABELS[mode])]
-    if report.get("blockedBy"):
-        lines.append(f"Suspended: {report['blockedBy']}")
-    power = power_line(report.get("power"))
-    if power:
-        lines.append(power)
-    lines.append("Leases: " + (", ".join(lease_line(lease) for lease in leases) if leases else "none"))
+    if mode == "suspended":
+        reason = report.get("blockedBy") or report.get("headline", "safety cut-out")
+        lines = [
+            "Normal sleep active (safety cut-out)",
+            f"↳ Paused: {reason}",
+        ]
+        power = power_line(report.get("power"))
+        if power:
+            lines.append(power)
+        lines.append(
+            "Leases on hold: "
+            + (", ".join(lease_line(lease) for lease in leases) if leases else "none")
+            + " (resumes when charging)"
+        )
+    elif mode == "unavailable":
+        lines = ["NonSleep unavailable", f"↳ {report.get('headline', 'CLI failed')}"]
+    else:
+        lines = [report.get("headline", LABELS[mode])]
+        power = power_line(report.get("power"))
+        if power:
+            lines.append(power)
+        lines.append(
+            "Leases: "
+            + (", ".join(lease_line(lease) for lease in leases) if leases else "none")
+        )
     agents = report.get("agents") or []
     lines.append(
         "Agents: "
@@ -223,7 +241,8 @@ class Indicator:
             self.append_action(f"Keep awake: {label}", self.on_keep_awake, duration)
         self.append_action("Keep awake: custom…", self.on_custom)
         self.menu.append(Gtk.SeparatorMenuItem())
-        self.append_action("Off (allow sleep)", self.on_off)
+        off_label = "Turn off (cancel leases on hold)" if view["class"] == "suspended" else "Turn off (allow sleep)"
+        self.append_action(off_label, self.on_off)
         self.append_action("Sleep now", self.on_sleep)
         self.menu.append(Gtk.SeparatorMenuItem())
         self.append_action("Quit indicator", lambda *_: Gtk.main_quit())

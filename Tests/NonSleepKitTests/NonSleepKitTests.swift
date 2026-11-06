@@ -287,6 +287,21 @@ func makeEngine(_ power: FakePower) -> NonSleep {
         #expect(object["mode"] as? String == "normal")
         #expect(["macos", "linux"].contains(object["platform"] as? String ?? ""))
     }
+
+    @Test func linuxOmitsThermalState() throws {
+        let status = Status(power: PowerSnapshot(thermal: .fair), leases: [], blockedBy: nil, setByOtherTool: false)
+        let linuxReport = StatusReport(status, agents: [], thermalRetryLimit: 3, platform: "linux", now: now)
+        #expect(linuxReport.platform == "linux")
+        #expect(linuxReport.power.thermal == nil)
+
+        let decoded = try StatusReport.decode(linuxReport.json())
+        #expect(decoded.power.thermal == nil)
+
+        // The JSON itself must either omit "thermal" or encode it as null, never "nominal".
+        let raw = try #require(try JSONSerialization.jsonObject(with: Data(linuxReport.json().utf8)) as? [String: Any])
+        let power = try #require(raw["power"] as? [String: Any])
+        #expect(power["thermal"] == nil || power["thermal"] is NSNull)
+    }
 }
 
 @Suite struct HookIntegrations {
@@ -415,6 +430,11 @@ func makeEngine(_ power: FakePower) -> NonSleep {
         #expect(!LinuxParse.battery([("Battery", "Charging", "80")]).onBattery)
         let desktop = LinuxParse.battery([("Mains", nil, nil)])
         #expect(!desktop.onBattery && desktop.percent == nil)
+        let withMouse = LinuxParse.battery([
+            (name: "hidpp_battery_0", type: "Battery", status: "Discharging", capacity: "90", scope: "Device"),
+            (name: "BAT0", type: "Battery", status: "Discharging", capacity: "15", scope: "System"),
+        ])
+        #expect(withMouse.onBattery && withMouse.percent == 15)
     }
 }
 

@@ -34,6 +34,14 @@ fi
 if [ -x "$here/nonsleep" ]; then
     binary="$here/nonsleep"
 else
+    if ! command -v swift >/dev/null 2>&1; then
+        arch="$(uname -m)"
+        case "$arch" in arm64) arch="aarch64" ;; esac
+        echo "install: swift compiler not found. To build from source, install Swift 6." >&2
+        echo "         Or download a prebuilt release tarball (no Swift needed):" >&2
+        echo "         https://github.com/Tran-Duc-Duy/nonsleep/releases/latest/download/nonsleep-linux-$arch.tar.gz" >&2
+        exit 1
+    fi
     echo "==> Building nonsleep"
     cd "$here/.."
     swift build -c release --product nonsleep
@@ -82,8 +90,13 @@ Comment=Tray indicator: lid-closed mode, leases, timers
 Exec=$bindir/nonsleep-indicator
 X-GNOME-Autostart-enabled=true
 EOF
-    command -v python3 >/dev/null 2>&1 ||
-        echo "    (python3 not found — the indicator needs python3, GTK 3 and AppIndicator bindings)"
+    if ! python3 -c 'import gi; gi.require_version("Gtk", "3.0"); (gi.require_version("AyatanaAppIndicator3", "0.1") if hasattr(gi, "require_version") else None)' 2>/dev/null && \
+       ! python3 -c 'import gi; gi.require_version("Gtk", "3.0"); gi.require_version("AppIndicator3", "0.1")' 2>/dev/null; then
+        echo "    ! AppIndicator bindings missing — tray icon will not show until installed:"
+        echo "      Debian/Ubuntu: sudo apt install python3-gi gir1.2-gtk-3.0 gir1.2-ayatanaappindicator3-0.1"
+        echo "      Fedora:        sudo dnf install python3-gobject gtk3 libayatana-appindicator-gtk3"
+        echo "      (GNOME also needs the AppIndicator extension, preinstalled on Ubuntu)"
+    fi
     echo "    Start it now with: nonsleep-indicator &"
 fi
 
