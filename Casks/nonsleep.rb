@@ -1,6 +1,6 @@
 cask "nonsleep" do
-  version "0.3.0"
-  sha256 "1390dae2a54d3244708977d93c34400d65d71e3bb672950f25694ec4a596e814"
+  version "0.4.0"
+  sha256 "f14d019df1d91db18bfc039a19c83d726517f501919c41ea327f8f41f109a0de"
 
   url "https://github.com/Tran-Duc-Duy/nonsleep/releases/download/v#{version}/NonSleep-#{version}-macOS.zip"
   name "NonSleep"
