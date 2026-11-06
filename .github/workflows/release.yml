@@ -100,6 +100,14 @@ jobs:
         run: |
           mkdir dist
           find artifacts -type f ! -name notes.md -exec mv {} dist/ \;
+          # Version-free copies so latest-download URLs (and llms.txt) work forever:
+          #   nonsleep-linux-x86_64.tar.gz -> nonsleep-0.4.0-linux-x86_64.tar.gz
+          for arch in x86_64 aarch64; do
+            versioned=(dist/nonsleep-*-linux-"$arch".tar.gz)
+            if [ -f "${versioned[0]}" ]; then
+              cp "${versioned[0]}" "dist/nonsleep-linux-$arch.tar.gz"
+            fi
+          done
           (cd dist && sha256sum -- * > SHA256SUMS.txt && cat SHA256SUMS.txt)
       - name: Attest build provenance
         uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2

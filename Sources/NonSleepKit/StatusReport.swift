@@ -30,8 +30,9 @@ public struct StatusReport: Codable, Sendable, Equatable {
         public var onBattery: Bool
         /// `nil` on machines without a battery.
         public var batteryPercent: Int?
-        /// Always `nominal` on Linux: there is no thermal cut-out there.
-        public var thermal: Thermal
+        /// macOS: current thermal state (nominal/fair/serious/critical).
+        /// Linux: `nil` (NonSleep has no heat cut-out on Linux and does not monitor thermal state).
+        public var thermal: Thermal?
     }
 
     public struct LeaseInfo: Codable, Sendable, Equatable {
@@ -66,14 +67,22 @@ public struct StatusReport: Codable, Sendable, Equatable {
     public var agents: [AgentActivity]
     public var thermalGuard: ThermalGuardInfo
 
-    public init(_ status: Status, agents: [AgentActivity], thermalRetryLimit: Int, now: Date = Date()) {
+    public init(
+        _ status: Status,
+        agents: [AgentActivity],
+        thermalRetryLimit: Int,
+        platform: String? = nil,
+        now: Date = Date()
+    ) {
         schema = Self.schema
         version = NonSleepVersion.current
         #if os(macOS)
-        platform = "macos"
+        let detectedPlatform = "macos"
         #else
-        platform = "linux"
+        let detectedPlatform = "linux"
         #endif
+        let activePlatform = platform ?? detectedPlatform
+        self.platform = activePlatform
         generatedAt = now
         if status.blockedBy != nil {
             mode = .suspended
@@ -90,7 +99,7 @@ public struct StatusReport: Codable, Sendable, Equatable {
             externalDisplay: status.power.externalDisplay,
             onBattery: status.power.onBattery,
             batteryPercent: status.power.batteryPercent,
-            thermal: status.power.thermal
+            thermal: activePlatform == "linux" ? nil : status.power.thermal
         )
         leases = status.leases.map {
             LeaseInfo(id: $0.id, reason: $0.reason, ownerPID: $0.ownerPID.map { Int32($0) }, expiresAt: $0.expiresAt)

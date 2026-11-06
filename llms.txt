@@ -1,6 +1,6 @@
 # NonSleep
 
-> NonSleep keeps a MacBook working with the lid closed and no external display while AI coding agents (Claude Code, Cursor, Codex, omp, Antigravity) or long tasks run, then lets it sleep again the moment they finish. Open source, 100% offline, zero dependencies, macOS 13+ and Linux.
+> NonSleep keeps a MacBook or Linux laptop working with the lid closed and no external display while AI coding agents (Claude Code, Cursor, Codex, omp, Antigravity) or long tasks run, then lets it sleep again the moment they finish. Open source, 100% offline, zero dependencies, macOS 13+ and Linux.
 
 Tools like `caffeinate` and Amphetamine rely on `IOPMAssertion`, which only blocks *idle* system sleep. When a MacBook lid closes without an external monitor, macOS forces sleep regardless of any `IOPMAssertion`. NonSleep instead manages `pmset -a disablesleep`, the one switch that survives a closed lid, and binds it to process-tracked, time-limited leases: when the agent turn ends, the process crashes, or the machine reboots, normal sleep is restored automatically. On Linux it uses systemd `logind` inhibitor locks and needs no root.
 
@@ -14,7 +14,9 @@ Key properties:
 - Air-gapped: no network code, no telemetry, no third-party packages.
 - English and Vietnamese interface (`config.language`: `auto`, `en`, `vi`).
 
-Install: `git clone https://github.com/Tran-Duc-Duy/nonsleep && cd nonsleep && scripts/install.sh`
+Install:
+- macOS: `brew tap Tran-Duc-Duy/tap && brew trust Tran-Duc-Duy/tap && brew install --cask nonsleep` (or download `NonSleep-X.Y.Z-macOS.zip` from GitHub Releases).
+- Linux: `curl -fsSLO https://github.com/Tran-Duc-Duy/nonsleep/releases/latest/download/nonsleep-linux-$(uname -m | sed s/arm64/aarch64/).tar.gz && tar -xzf nonsleep-linux-*.tar.gz && cd nonsleep-* && ./install.sh --indicator` (prebuilt binary, no Swift compiler required).
 
 Primary commands: `nonsleep status [--json]`, `nonsleep on [DURATION]`, `nonsleep off`, `nonsleep sleep`, `nonsleep run -- CMD`, `nonsleep wait TARGET…`, `nonsleep auto`, `nonsleep integrate [AGENT…]`, `nonsleep doctor`, `nonsleep history`, `nonsleep mcp`, `nonsleep setup`. `status --json` emits a stable schema (mode, leases, agents, power) for Linux tray indicators, waybar modules and scripts.
 
