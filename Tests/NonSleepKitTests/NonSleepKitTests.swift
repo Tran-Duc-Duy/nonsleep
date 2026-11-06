@@ -237,8 +237,8 @@ func makeEngine(_ power: FakePower) -> NonSleep {
 @Suite struct JSONStatus {
     let now = Date(timeIntervalSince1970: 1_700_000_000)
 
-    func report(_ status: Status, agents: [AgentActivity] = []) -> StatusReport {
-        StatusReport(status, agents: agents, thermalRetryLimit: 3, now: now)
+    func report(_ status: Status, agents: [AgentActivity] = [], platform: String? = nil) -> StatusReport {
+        StatusReport(status, agents: agents, thermalRetryLimit: 3, platform: platform, now: now)
     }
 
     /// `mode` is what a tray icon switches on, so it must follow the same precedence as the
@@ -262,19 +262,23 @@ func makeEngine(_ power: FakePower) -> NonSleep {
             setByOtherTool: false,
             thermalGuard: ThermalGuard(trips: 2, resumes: 1, lockedOut: true)
         )
-        let original = report(status, agents: [AgentActivity(name: "claude", pid: 7, source: .process)])
-        let decoded = try StatusReport.decode(original.json())
+        let macOriginal = report(status, agents: [AgentActivity(name: "claude", pid: 7, source: .process)], platform: "macos")
+        let macDecoded = try StatusReport.decode(macOriginal.json())
 
-        #expect(decoded == original)
-        #expect(decoded.schema == 1)
-        #expect(decoded.leases.map(\.ownerPID) == [nil, 42])
-        #expect(decoded.leases[0].expiresAt == now + 600)
-        #expect(decoded.agents == [AgentActivity(name: "claude", pid: 7, source: .process)])
-        #expect(decoded.thermalGuard == StatusReport.ThermalGuardInfo(trips: 2, resumes: 1, retryLimit: 3, lockedOut: true))
-        #expect(decoded.power.batteryPercent == 41)
-        #expect(decoded.power.thermal == .fair)
+        #expect(macDecoded == macOriginal)
+        #expect(macDecoded.schema == 1)
+        #expect(macDecoded.leases.map(\.ownerPID) == [nil, 42])
+        #expect(macDecoded.leases[0].expiresAt == now + 600)
+        #expect(macDecoded.agents == [AgentActivity(name: "claude", pid: 7, source: .process)])
+        #expect(macDecoded.thermalGuard == StatusReport.ThermalGuardInfo(trips: 2, resumes: 1, retryLimit: 3, lockedOut: true))
+        #expect(macDecoded.power.batteryPercent == 41)
+        #expect(macDecoded.power.thermal == .fair)
+
+        let linuxOriginal = report(status, agents: [AgentActivity(name: "claude", pid: 7, source: .process)], platform: "linux")
+        let linuxDecoded = try StatusReport.decode(linuxOriginal.json())
+        #expect(linuxDecoded == linuxOriginal)
+        #expect(linuxDecoded.power.thermal == nil)
     }
-
     /// Frontends poll this; the keys and the enumerated values are the contract, not the prose.
     @Test func jsonUsesStableKeysAndISODates() throws {
         let text = report(Status(power: PowerSnapshot(), leases: [], blockedBy: nil, setByOtherTool: false)).json()
